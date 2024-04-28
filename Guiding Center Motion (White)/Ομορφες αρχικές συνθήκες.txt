@@ -1,0 +1,41 @@
+Ομορφες αρχικές συνθήκες
+
+# Parameters
+mu = 10**(-4) # Magnetic moment
+g  = 1 # Poloidal current
+
+# Initial Conditions
+theta0 = 0
+psip0 = .4
+z0 = 0
+Pz0 = .01
+rho0 = Pz0 + psip0
+
+# Time span
+tspan = np.linspace(0, 1000, 100000)
+
+-------------------------------------------------------------------
+ Κλειστή τροχιά
+# Parameters
+mu = 10**(-3) # Magnetic moment
+g  = 1 # Poloidal current
+
+# Initial Conditions
+theta0 = 0
+psip0 = .17
+z0 = 0
+Pz0 = -0.1
+rho0 = Pz0 + psip0
+
+------------------------------------------------------------------
+Διαχωρίζουσα
+# Parameters
+mu = 10**(-3) # Magnetic moment
+g  = 1 # Poloidal current
+
+# Initial Conditions
+theta0 = 0
+psip0 = .19737
+z0 = 0
+Pz0 = -0.1
+rho0 = Pz0 + psip0
