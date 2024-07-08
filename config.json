@@ -1,0 +1,10 @@
+{
+    "time_plots_size": 0.08,
+    "time_plots_color": "blue",
+    "time_plots_ylabel_fontsize": 10,
+
+    "drift_plots_size": 0.12,
+    "drift_plots_color": "black",
+    "drift_plots_ylabel_fontsize": 20,
+    "drift_plots_xlabel_fontsize": 20
+}
