@@ -3,8 +3,25 @@
     "time_plots_color": "blue",
     "time_plots_ylabel_fontsize": 10,
 
-    "drift_plots_size": 0.12,
-    "drift_plots_color": "black",
+    "drift_plots_width": 0.5,
+    "drift_plots_color": "red",
     "drift_plots_ylabel_fontsize": 20,
-    "drift_plots_xlabel_fontsize": 20
+    "drift_plots_xlabel_fontsize": 20,
+
+    "drift_scatter_size": 0.1,
+    "drift_scatter_color": "red",
+
+    "contour_grid_density": 100,
+    "contour_levels_default": 30,
+    "contour_cmap": "winter",
+
+    "parabolas_color": "k",
+    "parabolas_width": "0.6",
+    "dashed_color": "k",
+    "dashed_width": "0.6",
+
+    "orbit_point_size": 7,
+    "orbit_point_marker" : "o",
+    "orbit_point_edge_color": "k",
+    "orbit_point_face_color": "red"
 }
