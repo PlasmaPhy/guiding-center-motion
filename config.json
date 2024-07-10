@@ -23,5 +23,16 @@
     "orbit_point_size": 7,
     "orbit_point_marker" : "o",
     "orbit_point_edge_color": "k",
-    "orbit_point_face_color": "red"
+    "orbit_point_face_color": "red",
+
+    "torus2d_wall_color": "k",
+    "torus2d_wall_size": 0.3,
+    "torus2d_orbit_color": "blue",
+    "torus2d_orbit_size": 0.07,
+
+    "torus3d_wall_color": "cyan",
+    "torus3d_wall_alpha": 0.3,
+    "torus3d_orbit_color": "red",
+    "torus3d_orbit_alpha": 0.5,
+    "torus3d_orbit_size": 0.08
 }
