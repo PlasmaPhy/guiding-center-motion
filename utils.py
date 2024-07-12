@@ -1,4 +1,5 @@
 import json
+import numpy as np
 
 class Config_file():
     """Returns an object with plotting settings from config.json
@@ -94,3 +95,14 @@ class Config_file():
         kw dictionaries should be called as "Config.<kw>"
         """
         return self.config.kw
+
+def theta_plot(theta, theta_lim = [0,2*np.pi]):
+    if theta_lim == [0, 2 * np.pi]:
+        theta_plot = np.mod(theta, 2 * np.pi)
+    elif theta_lim == [-np.pi, np.pi]:
+        theta_plot = np.mod(theta, 2 * np.pi)
+        theta_plot = theta_plot - 2 * np.pi * (theta_plot > np.pi)
+    else:
+        print("theta_lim must be either [0,2*np.pi] or [-np.pi,np.pi].")
+        return
+    return theta_plot

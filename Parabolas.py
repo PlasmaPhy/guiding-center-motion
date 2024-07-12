@@ -5,6 +5,7 @@ This class constructs the parabolas that classify each orbit type
 import numpy as np
 import utils
 import matplotlib.pyplot as plt
+import Functions.Qfactors as Qfactors
 
 
 class Orbit_parabolas:
@@ -16,7 +17,7 @@ class Orbit_parabolas:
     the dashed comments.
     """
 
-    def __init__(self, E, B=[0, 1, 0], psip_wall=0.4):
+    def __init__(self, E, q=Qfactors.Unity, B=[0, 1, 0], Efield=None, psi_wall=0.3):  # Ready to commit
         """Constructs the 3 parabolas and calculates the special points.
 
         Args:
@@ -24,33 +25,43 @@ class Orbit_parabolas:
             B (list, optional): The 3 componets of the contravariant representation
                                 of the magnetic field B. Defaults to [0, 1, 0].
             psip_wall (float, optional): The value of ψ at the wall. Better be lower
-                                lower than 0.5. Defaults to 0.4.
+                                lower than 0.5. Defaults to 0.3.
         """
 
+        self.q = q
         self.E = E
         self.i, self.g, self.delta = B
-        self.psip_wall = psip_wall
+        self.Efield = Efield
+        self.psi_wall = psi_wall
+        self.psip_wall = self.q.psip_from_psi(psi_wall)
 
-        Bmin = 1 - np.sqrt(2 * psip_wall)  # "Bmin occurs at psip_wall, θ = 0"
-        Bmax = 1 + np.sqrt(2 * psip_wall)  # "Bmax occurs at psip_wall, θ = π"
+        Bmin = 1 - np.sqrt(2 * self.psip_wall)  # "Bmin occurs at psip_wall, θ = 0"
+        Bmax = 1 + np.sqrt(2 * self.psip_wall)  # "Bmax occurs at psip_wall, θ = π"
         B0 = 1
+
+        # Electric Potential Components:
+        # if self.Efield is None:
+        #     Phimin = Phimax = Phi0 = 0
+        # else:
+        #     Phimin, Phimax = self.Efield.extremums()
+        #     Phi0 = self.Efield.Phi_of_r(0)
 
         # Parabolas constants [a, b, c]
         # __________________________________________________________
         # Top left
         abc1 = [
-            -B0 * Bmin * psip_wall**2 / (2 * self.g**2 * E),
-            -B0 * Bmin * psip_wall**2 / (self.g**2 * E),
-            -B0 * Bmin * psip_wall**2 / (2 * self.g**2 * E) + B0 / Bmin,
+            -B0 * Bmin * self.psip_wall**2 / (2 * self.g**2 * E),
+            -B0 * Bmin * self.psip_wall**2 / (self.g**2 * E),
+            -B0 * Bmin * self.psip_wall**2 / (2 * self.g**2 * E) + B0 / Bmin,
         ]
         # Bottom left
         abc2 = [
-            -B0 * Bmax * psip_wall**2 / (2 * self.g**2 * E),
-            -B0 * Bmax * psip_wall**2 / (self.g**2 * E),
-            -B0 * Bmax * psip_wall**2 / (2 * self.g**2 * E) + B0 / Bmax,
+            -B0 * Bmax * self.psip_wall**2 / (2 * self.g**2 * E),
+            -B0 * Bmax * self.psip_wall**2 / (self.g**2 * E),
+            -B0 * Bmax * self.psip_wall**2 / (2 * self.g**2 * E) + B0 / Bmax,
         ]
         # Right
-        abc3 = [-(B0**2) * psip_wall**2 / (2 * self.g**2 * E), 0, 1]
+        abc3 = [-(B0**2) * self.psip_wall**2 / (2 * self.g**2 * E), 0, 1]
         # __________________________________________________________
 
         # Calculate all x-intercepts and use the 2 outermost
@@ -74,9 +85,8 @@ class Orbit_parabolas:
         # Grab configuration
         self.Config = utils.Config_file()
 
-    def plot_parabolas(self):
-        """Plots the 3 parabolas.
-        """
+    def plot_parabolas(self):  # Ready to commit
+        """Plots the 3 parabolas."""
         # Top left
         x, y = self.par1.construct(self.xlim)
         plt.plot(x, y, **self.Config.parabolas_normal_plot_kw)
@@ -91,14 +101,15 @@ class Orbit_parabolas:
 
         # General plot settings
         plt.gca().set_xlim(self.xlim)
-        plt.gca().set_ylim(bottom=0)
+        top_par = Parabola(self.abcs[0])
+        _, top = top_par.get_extremum()
+        plt.gca().set_ylim(bottom=0, top=1.1 * top)
         plt.xlabel("${P_\zeta}/{\psi_{wall}}$")
         plt.ylabel("$\dfrac{\mu B_0}{E}\t$", rotation=0)
         plt.title("Orbit types in the plane of $P_\zeta - \mu$ for fixed energy.")
 
-    def plot_tp_boundary(self):
-        """Plots the Trapped-Passing Boundary.
-        """
+    def plot_tp_boundary(self):  # Ready to commit
+        """Plots the Trapped-Passing Boundary."""
         # Vertical line
         foo = Parabola(self.abcs[0])
         p1 = foo.get_extremum()
@@ -123,10 +134,11 @@ class Orbit_parabolas:
         plt.plot(x, y1_plot, **self.Config.parabolas_dashed_plot_kw)
         plt.plot(x, y2_plot, **self.Config.parabolas_dashed_plot_kw)
 
-    def get_abcs(self):
-        """Returns the consants of the 3 parabolas as [[...],[...],[...]]
-        """
+    def get_abcs(self):  # Ready to commit
+        """Returns the consants of the 3 parabolas as [[...],[...],[...]]"""
         return self.abcs
+
+
 class Parabola:
     """Creates a parabola ax^2 + bx + c = 0,
 
@@ -134,7 +146,7 @@ class Parabola:
     Stores minimum/maximum and intercepts
     """
 
-    def __init__(self, abc):
+    def __init__(self, abc):  # Ready to commit
         """Initialization and intercepts/extremums calculation.
 
         Args:
@@ -146,9 +158,7 @@ class Parabola:
 
         # Calculate intrecepts/ extremums:
         self.discriminant = self.b**2 - 4 * self.a * self.c
-        self.x_intercepts = np.array(
-            [-self.b - np.sqrt(self.discriminant), -self.b + np.sqrt(self.discriminant)]
-        ) / (2 * self.a)
+        self.x_intercepts = np.array([-self.b - np.sqrt(self.discriminant), -self.b + np.sqrt(self.discriminant)]) / (2 * self.a)
         self.y_intercept = self.c
 
         if self.a > 0:
@@ -165,14 +175,12 @@ class Parabola:
         # Grab configuration
         # self.Config = utils.Config_file()
 
-    def get_x_intercepts(self): # Should fix the case that no intercepts exist
-        """Returns the 2 x-intercepts as an array
-        """
+    def get_x_intercepts(self):  # Should fix the case that no intercepts exist
+        """Returns the 2 x-intercepts as an array"""
         return self.x_intercepts
 
     def get_extremum(self):
-        """Returns the extremum point as (x,y)
-        """
+        """Returns the extremum point as (x,y)"""
         if self.a > 0:
             return [self.min_pos, self.min]
         else:
@@ -183,7 +191,7 @@ class Parabola:
 
         Args:
             xlim (list): The x interval. Determined by the plotter
-                    so that all 3 parabolas are constructed at the 
+                    so that all 3 parabolas are constructed at the
                     same interval.
         """
 

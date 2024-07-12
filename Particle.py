@@ -9,6 +9,7 @@ import utils
 import Parabolas
 from importlib import reload
 from scipy.integrate import odeint
+import Functions.Qfactors as Qfactors
 
 reload(Parabolas)  # for debugging
 
@@ -16,34 +17,60 @@ reload(Parabolas)  # for debugging
 class Particle:
     """Initializes a particle.
 
-    To change the canonical equations, go to self.dSdt(), under
-    self.orbit().
+    Supposedly there is no need to change anything here. Electric Fields and Q factors
+    should be changed in the ./Functions folder.
+    """
 
-    To change q factor, first change the expression in self.q(), then
-    solve for psi and change the expression in self.psi_from_psip(),
-    and self.psip_from_psi()"""
-
-    def __init__(self, species, init_cond, mu, tspan, B=[0, 1, 0], psip_wall=0.4):
+    def __init__(
+        self,
+        species,
+        init_cond,
+        mu,
+        tspan,
+        q=Qfactors.Unity,
+        B=[0, 1, 0],
+        Efield=None,
+        psi_wall=0.3,
+    ):  # Ready to commit
         """Initializes particle and grabs configuration.
 
         Args:
             species (str): the particle species
-            init_cond (np.array): 1x5 initial conditions array
+            init_cond (np.array): 1x3 initial conditions array (self.init_cond includes
+                                2 more initial conditions)
             mu (float): magnetic moment
             tspan (np.array): The ODE interval, in [t0, tf, steps]
+            q (object): Qfactor object that supports query methods for getting values
+                                of ψ/ψ_p and q
             B (list, optional): The 3 componets of the contravariant representation
                                 of the magnetic field B. Defaults to [0, 1, 0].
-            psip_wall (float, optional): The value of ψ at the wall. Better be lower
-                                lower than 0.5. Defaults to 0.4.
+            E (object): Electric Field Object that supports query methods for getting
+                                values for the field itself and some derivatives of
+                                its potential.
+            psi_wall (float, optional): The value of ψ at the wall. Better be low enough
+                                so that ψ_p is lower than 0.5, which depends on the q
+                                factor. Defaults to 0.3.
         """
+
         # Initialization
         self.species = species
-        self.init_cond = init_cond
+        psip0 = q.psip_from_psi(init_cond[1])
+        rho0 = init_cond[3] + psip0  # Pz0 + psip0
+        init_cond.insert(2, psip0)
+        init_cond.insert(5, rho0)
+        self.init_cond = np.array(init_cond)
         self.mu = mu
+        self.q = q
         self.B = B
         self.I, self.g, self.delta = self.B
-        self.psip_wall = psip_wall
+        self.Efield = Efield
+        self.psi_wall = psi_wall
+        self.psip_wall = self.q.psip_from_psi(self.psi_wall)
+        self.psi_wall = np.sqrt(2 * psi_wall)
         self.tspan = tspan
+        # psi_p > 0.5 warning
+        if self.psip_wall >= 0.5:
+            print(f"WARNING: psip_wall = {self.psip_wall} >= 0,5." + "Parabolas and other stuff will probably not work")
 
         # Logic variables
         self.calculated_orbit = False
@@ -53,16 +80,16 @@ class Particle:
         # Grab configuration
         self.Config = utils.Config_file()
 
-    def __str__(self):
-        string = (
-            f'Particle of Species:\t "{self.species}"\n'
-            + f"Calculated orbit:\t {self.calculated_orbit}\n\n"
-        )
+        # Run
+        self.orbit()
+
+    def __str__(self):  # Ready to commit
+        string = f'Particle of Species:\t "{self.species}"\n' + f"Calculated orbit:\t {self.calculated_orbit}\n\n"
         # Also grab orbit_type() results
         string += self.orbit_type(info=True)
         return string
 
-    def orbit(self):
+    def orbit(self):  # Ready to commit
         """Calculates the orbit of the particle.
 
         Calculates a 2D numpy array, containing the 4 time evolution vectors of
@@ -75,77 +102,52 @@ class Particle:
         if self.calculated_orbit:
             return
 
-        print("Calculating Orbit")
-
-        def dSdt(t, S, mu=None):
+        def dSdt_psi(t, S, mu=None):
             """Sets the diff equations system to pass to scipy"""
 
-            theta, psip, z, rho = S
-
-            # ψ is calculated in each step. This can be done since
-            # we know ψ_p and q.
-            psi = self.psi_from_psip(psip)
+            theta, psi, psip, z, rho = S
 
             # Intermediate values
-            q = self.q(psi)
+            r = np.sqrt(2 * psi)
+            if self.Efield is None:
+                phi_der_psip = phi_der_theta = 0
+            else:
+                *_, phi_der_psip, phi_der_theta = self.Efield.orbit(r)
+
+            q_value = self.q.q_of_psi(psi)
             sin_theta = np.sin(theta)
             cos_theta = np.cos(theta)
-            r = np.sqrt(2 * psi)
             B = 1 - r * cos_theta
             par = self.mu + rho**2 * B
+            bracket1 = -par * q_value * cos_theta / r + phi_der_psip
+            bracket2 = par * r * sin_theta + phi_der_theta
+            D = self.g * q_value + self.I
 
-            # Canonical Equation (Change this)
-            theta_dot = 1 / q * (rho * B**2 - par * cos_theta / r)
-            psip_dot = -1 / q * par * r * sin_theta
-            z_dot = rho * B**2
-            rho_dot = psip_dot
+            # Canonical Equation
+            theta_dot = 1 / D * rho * B**2 + self.g / D * bracket1
+            psi_dot = -self.g / D * bracket2 * self.q.q_of_psi(psi)
+            psip_dot = psi_dot / self.q.q_of_psi(psi)
+            rho_dot = psi_dot / (self.g * self.q.q_of_psi(psi))
+            z_dot = rho * B**2 / D - self.I / D * bracket1
 
-            return np.array([theta_dot, psip_dot, z_dot, rho_dot])
+            return np.array([theta_dot, psi_dot, psip_dot, z_dot, rho_dot])
 
-        sol_init = np.delete(self.init_cond, 3)  # Drop Pz0
-        self.sol = odeint(dSdt, y0=sol_init, t=self.tspan, tfirst=True)
+        sol_init = np.delete(self.init_cond, 4)  # Drop Pz0
+        self.sol = odeint(dSdt_psi, y0=sol_init, t=self.tspan, tfirst=True)
 
         self.theta = self.sol.T[0]
-        self.psip = self.sol.T[1]
-        self.z = self.sol.T[2]
-        self.rho = self.sol.T[3]
-
-        # ψ must be calculated again afterwards, since it is not calculated
-        # from the ODE system, but the q factor
-        self.psi = self.psi_from_psip(self.psip)
+        self.psi = self.sol.T[1]
+        self.psip = self.q.psip_from_psi(self.psi)
+        self.z = self.sol.T[3]
+        self.rho = self.sol.T[4]
 
         self.calculated_orbit = True
-        self.calc_momenta()
 
-    def calc_momenta(self):
-        """Calculates the canonical momenta P_θ and P_ζ and stores them in "self"."""
-
+        # Calculate Canonical Momenta
         self.Ptheta = self.psi + self.rho * self.I
         self.Pzeta = self.rho * self.g - self.psip
 
-    def q(self, psi):
-        """Returns q(ψ)."""
-        return 1 + psi**2
-
-    def psi_from_psip(self, psip):
-        """Returns ψ(ψ_p), as defined from the safety factor q.
-
-        Only applicable if q can be solved for ψ (q can be integrated
-        with respect to ψ). For more complex form of q, another method
-        is required.
-        """
-        return np.tan(psip)
-
-    def psip_from_psi(self, psi):
-        """Returns ψ_p(ψ), as defined from the safety factor q.
-
-        Only applicable if q can be solved for ψ_p (q can be integrated
-        with respect to ψ). For more complex form of q, another method
-        is required.
-        """
-        return np.atan(psi)
-
-    def orbit_type(self, info=True):
+    def orbit_type(self, info=True):  # Ready to commit
         """
         Calculates the orbit type given the initial conditions ONLY.
 
@@ -161,18 +163,14 @@ class Particle:
         """
 
         # Constants of Motion: Particle energy and Pz
-        self.theta0, self.psip0, self.z0, self.Pz0, self.rho0 = self.init_cond
+        self.theta0, self.psi0, self.psip0, self.z0, self.Pz0, self.rho0 = self.init_cond
         self.r0 = np.sqrt(2 * self.psip0)
         self.B_init = 1 - self.r0 * np.cos(self.theta0)
 
         self.E = self.rho0**2 * self.B_init**2 / 2 + self.mu * self.B_init
 
         # Will be passed at __str__() to be printed in the end
-        self.orbit_type_str = (
-            "Constants of motion:\n"
-            + f"Particle Energy:\tE = {self.E}\n"
-            + f"Toroidal Momenta:\tPζ = {self.Pz0}\n"
-        )
+        self.orbit_type_str = "Constants of motion:\n" + f"Particle Energy:\tE = {self.E}\n" + f"Toroidal Momenta:\tPζ = {self.Pz0}\n"
 
         # Calculate Bmin and Bmax. In LAR, B decreases outwards.
         Bmin = 1 - np.sqrt(2 * self.psip_wall)  # "Bmin occurs at psip_wall, θ = 0"
@@ -187,20 +185,12 @@ class Particle:
         # Find if lost or confined
         particle_x = self.Pz0 / self.psip_wall
         particle_y = self.mu / self.E
-        foo = Parabolas.Orbit_parabolas(self.E, psip_wall=self.psip_wall)
+        foo = Parabolas.Orbit_parabolas(self.E, self.q, self.B, self.Efield, self.psi_wall)
 
         # Recalculate y by reconstructing the parabola (there might be a better way
         # to do this)
-        upper_y = (
-            foo.abcs[0][0] * particle_x**2
-            + foo.abcs[0][1] * particle_x
-            + foo.abcs[0][2]
-        )
-        lower_y = (
-            foo.abcs[1][0] * particle_x**2
-            + foo.abcs[1][1] * particle_x
-            + foo.abcs[1][2]
-        )
+        upper_y = foo.abcs[0][0] * particle_x**2 + foo.abcs[0][1] * particle_x + foo.abcs[0][2]
+        lower_y = foo.abcs[1][0] * particle_x**2 + foo.abcs[1][1] * particle_x + foo.abcs[1][2]
 
         if particle_y < upper_y and particle_y > lower_y:
             self.l_or_c = "Lost"
@@ -208,24 +198,52 @@ class Particle:
             self.l_or_c = "Confined"
 
         self.orbit_type_str = (
-            "Constants of motion:\n"
-            + f"Particle Energy:\tE = {np.around(self.E,8)}\n"
-            + f"Toroidal Momenta:\tPζ = {self.Pz0}\n\n"
-            + f"Orbit Type: {self.t_or_p} - {self.l_or_c}\n"
+            "Constants of motion:\n" + f"Particle Energy:\tE = {np.around(self.E,8)}\n" + f"Toroidal Momenta:\tPζ = {self.Pz0}\n\n" + f"Orbit Type: {self.t_or_p} - {self.l_or_c}\n"
         )
 
         if info:
             return self.orbit_type_str
 
-    def calcW_grid(self, theta, psi, Pz):
-        """Returns a single value or a grid of the calculated Hamiltonian."""
+    def calcW_grid(self, theta, psi, Pz, contour_Efield=True):  # Ready to commit
+        """Returns a single value or a grid of the calculated Hamiltonian.
+
+        Depending on the value of contour_Efield, it can include the Electric
+        Potential energy or not
+        """
 
         r = np.sqrt(2 * psi)
         B = 1 - r * np.cos(theta)
-        psip = self.psip_from_psi(psi)
-        return (Pz + psip) ** 2 * B**2 / (2 * self.g**2) + self.mu * B
+        psip = self.q.psip_from_psi(psi)
 
-    def plot_time_evolution(self, percentage=100):
+        if contour_Efield:
+            if self.Efield is None:
+                Phi = 0 * theta  # Grid of zeros
+            elif self.Efield is not None:
+                Phi = self.Efield.Phi_of_r(r)
+        else:
+            Phi = 0 * theta  # Grid of zeros
+
+        return (Pz + psip) ** 2 * B**2 / (2 * self.g**2) + self.mu * B + Phi
+
+    def plot_electric(self):  # BETA
+        psi = np.linspace(0, 1.1 * self.psi_wall, 1000) / self.psi_wall
+        Er = self.Efield.Er_of_r(psi)
+        Phi = self.Efield.Phi_of_r(psi)
+
+        fig, ax = plt.subplots(1, 2, figsize=(14, 5))
+        ax[0].plot(psi, Er, color="b", linewidth=3)
+        ax[0].plot([1, 1], [Er.min(), Er.max()], color="r", linewidth=3)
+        ax[0].set_xlabel("$r/r_{wall}$")
+        ax[0].set_ylabel("$E_r$")
+        ax[0].set_title("Radial electric field")
+
+        ax[1].plot(psi, Phi, color="b", linewidth=3)
+        ax[1].plot([1, 1], [Phi.min(), Phi.max()], color="r", linewidth=3)
+        ax[1].set_xlabel("$r/r_{wall}$")
+        ax[1].set_ylabel("$Φ_r$")
+        ax[1].set_title("Electric Potential")
+
+    def plot_time_evolution(self, percentage=100):  # Ready to commit
         """
         Plots the time evolution of the dynamical variabls and
         canonical momenta.
@@ -237,28 +255,31 @@ class Particle:
         points = int(np.floor(self.theta.shape[0] * percentage / 100) - 1)
 
         # Plotting
-        fig, ax = plt.subplots(6, 1, figsize=(10, 8), sharex=True)
+        fig, ax = plt.subplots(7, 1, figsize=(10, 8), sharex=True)
         fig.tight_layout()
         ax[0].title.set_text("Time evolution of dynamical variables")
-        ax[4].title.set_text("Time evolution of canonical momenta")
+        ax[5].title.set_text("Time evolution of canonical momenta")
 
         ax[0].scatter(self.tspan[:points], self.theta[:points], **self.Config.time_scatter_kw)
         ax[1].scatter(self.tspan[:points], self.z[:points], **self.Config.time_scatter_kw)
         ax[2].scatter(self.tspan[:points], self.psi[:points], **self.Config.time_scatter_kw)
-        ax[3].scatter(self.tspan[:points], self.rho[:points], **self.Config.time_scatter_kw)
-        ax[4].scatter(self.tspan[:points], self.Ptheta[:points], **self.Config.time_scatter_kw)
-        ax[5].scatter(self.tspan[:points], self.Pzeta[:points], **self.Config.time_scatter_kw)
+        ax[3].scatter(self.tspan[:points], self.psip[:points], **self.Config.time_scatter_kw)
+        ax[4].scatter(self.tspan[:points], self.rho[:points], **self.Config.time_scatter_kw)
+        ax[5].scatter(self.tspan[:points], self.Ptheta[:points], **self.Config.time_scatter_kw)
+        ax[6].scatter(self.tspan[:points], self.Pzeta[:points], **self.Config.time_scatter_kw)
 
         ax[0].set_ylabel("$\\theta(t)$\t", **self.Config.time_ylabel_kw)
         ax[1].set_ylabel("$\\zeta(t)$\t", **self.Config.time_ylabel_kw)
         ax[2].set_ylabel("$\\psi(t)$\t", **self.Config.time_ylabel_kw)
-        ax[3].set_ylabel("$\\rho(t)$\t", **self.Config.time_ylabel_kw)
-        ax[4].set_ylabel("$P_\\theta(t)$\t\t", **self.Config.time_ylabel_kw)
-        ax[5].set_ylabel("$P_\\zeta(t)$\t", **self.Config.time_ylabel_kw)
+        ax[3].set_ylabel("$\\psi_p(t)$\t", **self.Config.time_ylabel_kw)
+        ax[4].set_ylabel("$\\rho(t)$\t", **self.Config.time_ylabel_kw)
+        ax[5].set_ylabel("$P_\\theta(t)$\t\t", **self.Config.time_ylabel_kw)
+        ax[6].set_ylabel("$P_\\zeta(t)$\t", **self.Config.time_ylabel_kw)
+        ax[6].set_ylim([-self.psip_wall, self.psip_wall])
 
         plt.xlabel("$t$")
 
-    def plot_drift(self, theta_lim):
+    def plot_drift(self, theta_lim):  # Ready to commit
         """Draws 2 plots: 1] θ-P_θ and 2] ζ-P_ζ
 
         Args:
@@ -266,16 +287,8 @@ class Particle:
         """
 
         # Set theta lim. Mods all thetas to 2π
-        if theta_lim == [0, 2 * np.pi]:
-            self.theta_plot = np.mod(self.theta, 2 * np.pi)
-            self.theta_min, self.theta_max = theta_lim
-        elif theta_lim == [-np.pi, np.pi]:
-            theta_plot = np.mod(self.theta, 2 * np.pi)
-            self.theta_plot = theta_plot - 2 * np.pi * (theta_plot > np.pi)
-            self.theta_min, self.theta_max = theta_lim
-        else:
-            print("theta_lim must be either [0,2*np.pi] or [-np.pi,np.pi].")
-            return
+        theta_min, theta_max = theta_lim
+        self.theta_plot = utils.theta_plot(self.theta, theta_lim)
 
         fig, ax = plt.subplots(1, 2, figsize=(12, 5))
         fig.tight_layout()
@@ -302,8 +315,13 @@ class Particle:
         plt.xlim(theta_lim)
 
     def contour_energy(
-        self, scatter=True, theta_lim="auto", psi_lim="auto", levels=None
-    ):
+        self,
+        scatter=True,
+        theta_lim="auto",
+        psi_lim="auto",
+        contour_Efield=True,
+        levels=None,
+    ):  # Ready to commit
         """Draws a 2D contour plot of the Hamiltonian
 
         Args:
@@ -311,13 +329,20 @@ class Particle:
             theta_lim (str/list, optional): "auto" uses the same limits from the
                     previous drift plots. Defaults to "auto".
             psi_lim (str/list, optional): same as theta_lim. Defaults to "auto".
-            levels (int, optional): The number of contour levels. Defaults to 
+            levels (int, optional): The number of contour levels. Defaults to
                     Config setting.
         """
+        fig = plt.figure(figsize=(6, 4))
+        ax = fig.add_subplot(111)
+        ax.scatter(self.theta_plot, self.Ptheta, **self.Config.drift_scatter_kw)
 
-        # Set grid limits
+        # Set theta lim. Mods all thetas to 2π
+        self.theta_min, self.theta_max = theta_lim
+        self.theta_plot = utils.theta_plot(self.theta, theta_lim)
+
+        # Set psi limits
         if psi_lim == "auto":  # Use ylim from drift plots
-            psi_min, psi_max = self.drift_ylim
+            psi_min, psi_max = ax.get_ylim()
         else:
             psi_min, psi_max = psi_lim
 
@@ -327,7 +352,7 @@ class Particle:
             np.linspace(self.theta_min, self.theta_max, grid_density),
             np.linspace(psi_min, psi_max, grid_density),
         )
-        values = self.calcW_grid(theta, psi, self.Pz0)
+        values = self.calcW_grid(theta, psi, self.Pz0, contour_Efield)
         span = np.array([values.min(), values.max()])
 
         # Create Figure
@@ -339,21 +364,20 @@ class Particle:
             "levels": levels,
             "cmap": self.Config.contour_cmap,
         }
-        fig = plt.figure(figsize=(6, 4))
-        ax = fig.add_subplot(111)
+
         ax.set_facecolor("white")
 
         # Contour plot
         C = ax.contourf(theta, psi, values, **contour_kw)
         ax.set_xlabel("$\\theta$")
-        ax.set_ylabel("$\\psi_p\t$", rotation=0)
-        plt.scatter(self.theta_plot, self.psip, **self.Config.drift_scatter_kw)
+        ax.set_ylabel("$\\psi\t$", rotation=0)
+        plt.scatter(self.theta_plot, self.Ptheta, **self.Config.drift_scatter_kw)
         ticks = ["-2π", "-3π/2", "-π", "-π/2", "0", "π/2", "π", "3π/2", "2π"]
         plt.xticks(np.linspace(-2 * np.pi, 2 * np.pi, 9), ticks)
         ax.set(xlim=[self.theta_min, self.theta_max], ylim=[psi_min, psi_max])
         fig.colorbar(C, ax=ax, fraction=0.03, pad=0.2)
 
-    def plot_orbit_type_point(self):
+    def plot_orbit_type_point(self):  # Ready to commit
         """Plots the particle point on the μ-Pz (normalized) plane."""
 
         B0 = 1  # Field magnitude on magnetic axis
@@ -364,7 +388,7 @@ class Particle:
         label = "  Particle " + f"({self.t_or_p[0]}-{self.l_or_c[0]})"
         plt.annotate(label, (x, y))
 
-    def plot_torus2d(self, percentage=100):
+    def plot_torus2d(self, percentage=100):  # Ready to commit
         """Plots the poloidal and toroidal view of the orbit.
 
         Args:
@@ -377,13 +401,11 @@ class Particle:
         self.z_torus_plot = self.z[:points]
 
         # Torus shape parameters
-        scale = 4
-        self.Rmin = scale * np.sqrt(2 * self.psi.min())
+        scale = 1
+        self.Rmin = scale * np.sqrt(2 * self.psi).min()
         # Rmax = 1.2*np.sqrt(2*self.psip.max())
-        r_plot1 = self.Rmin + np.sqrt(2 * self.psi_torus_plot)
-        r_plot2 = self.Rmin + np.sqrt(2 * self.psi_torus_plot) * np.cos(
-            self.theta_torus_plot
-        )
+        r_plot1 = 3 * self.Rmin + np.sqrt(2 * self.psi_torus_plot)
+        r_plot2 = 3 * self.Rmin + np.sqrt(2 * self.psi_torus_plot) * np.cos(self.theta_torus_plot)
         self.Rmax = 1.1 * r_plot1.max()
 
         fig, ax = plt.subplots(1, 2, subplot_kw={"projection": "polar"})
@@ -417,12 +439,14 @@ class Particle:
 
         ax[0].grid(False)
         ax[1].grid(False)
+        ax[0].set_title("Toroidal View")
+        ax[1].set_title("Top-Down View")
         ax[0].set_xlabel("$\sqrt{2\psi} - \\theta$")
         ax[1].set_xlabel("$\sqrt{2\psi}\cos\\theta - \\zeta$")
         ax[0].tick_params(labelsize=8)
         ax[1].tick_params(labelsize=8)
 
-    def plot_torus3d(self, percentage=100, hd=True):
+    def plot_torus3d(self, percentage=100, hd=True, full_alpha=False):  # Ready to commit
         """Creates a 3d transparent torus and a part of the particle's orbit
 
         Args:
@@ -435,12 +459,8 @@ class Particle:
         rtorus = 0.5
 
         # Cartesian
-        x = (
-            Rtorus + np.sqrt(2 * self.psi[:points]) * np.cos(self.theta[:points])
-        ) * np.cos(self.z[:points])
-        y = (
-            Rtorus + np.sqrt(2 * self.psi[:points]) * np.cos(self.theta[:points])
-        ) * np.sin(self.z[:points])
+        x = (Rtorus + np.sqrt(2 * self.psi[:points]) * np.cos(self.theta[:points])) * np.cos(self.z[:points])
+        y = (Rtorus + np.sqrt(2 * self.psi[:points]) * np.cos(self.theta[:points])) * np.sin(self.z[:points])
         z = np.sin(self.theta[:points])
 
         # Set dpi
@@ -473,6 +493,9 @@ class Particle:
             cstride=5,
             **self.Config.torus3d_wall_kw,
         )
+
+        if full_alpha:
+            self.Config.torus3d_orbit_kw["alpha"] = 1
 
         ax.plot(x, y, z, **self.Config.torus3d_orbit_kw)
         ax.set_zlim([-3, 3])
