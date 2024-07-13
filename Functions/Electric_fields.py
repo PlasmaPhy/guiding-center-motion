@@ -32,7 +32,7 @@ class Parabolic:
 
         return np.array([Phi_der_psip, Phi_der_theta])
 
-    def Er_of_r(self, r):  # Ready to commit
+    def Er_of_psi(self, psi):  # Ready to commit
         """Returns the value of the field Er
 
         Args:
@@ -41,7 +41,7 @@ class Parabolic:
         Returns:
             float/array: potential Φ value(s)
         """
-
+        r = np.sqrt(2 * psi)
         Er = self.a * r**2 + self.b
         return Er
 
@@ -55,6 +55,19 @@ class Parabolic:
             float/array: potential Φ value(s)
         """
 
+        Phi = -(self.a / 3) * r**3 - self.b * r
+        return Phi
+
+    def Phi_of_psi(self, psi):  # Ready to commit
+        """Returns the value of the potential Φ
+
+        Args:
+            psi (float/array): the mangetic surface label
+
+        Returns:
+            float/array: potential Φ value(s)
+        """
+        r = np.sqrt(psi)
         Phi = -(self.a / 3) * r**3 - self.b * r
         return Phi
 
