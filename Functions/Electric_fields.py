@@ -8,7 +8,7 @@ class Parabolic:
 
     def __init__(self, psi_wall, q=Qfactors.Unity()):  # Ready to commit
         self.a = 1
-        self.b = 0
+        self.b = 0.1
         self.q = q
         self.psi_wall = psi_wall
         self.psip_wall = q.psip_from_psi(psi_wall)
@@ -67,7 +67,7 @@ class Parabolic:
         Returns:
             float/array: potential Φ value(s)
         """
-        r = np.sqrt(psi)
+        r = np.sqrt(2 * psi)
         Phi = -(self.a / 3) * r**3 - self.b * r
         return Phi
 
@@ -87,11 +87,11 @@ class Radial:
     """Initializes an electric field of the form:
     E(r) = -Ea*exp(-(r-r_a)^2 / r_w^2))"""
 
-    def __init__(self, psi_wall, q=Qfactors.Unity()):  # Ready to commit
+    def __init__(self, psi_wall, Ea=75, q=Qfactors.Unity()):  # Ready to commit
         self.Ea = 75  # kV/m
         self.r0 = 1
         self.ra = 0.98 * self.r0
-        self.rw = self.r0 / 50  # waist, not wall
+        self.rw = self.r0 / 5  # waist, not wall
         self.psia = self.ra**2 / 2
         self.psiw = self.rw**2 / 2  # waist, not wall
 
@@ -110,7 +110,7 @@ class Radial:
         Phi_der_psip = (
             self.q.q_of_psi(psi)
             * self.Ea
-            / (np.sqrt(2) * psi)
+            / (np.sqrt(2 * psi))
             * np.exp(-((np.sqrt(psi) - self.sr_psia) ** 2) / self.psiw)
         )
         Phi_der_theta = 0
