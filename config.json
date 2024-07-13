@@ -13,7 +13,7 @@
 
     "contour_grid_density": 100,
     "contour_levels_default": 30,
-    "contour_cmap": "winter",
+    "contour_cmap": "plasma",
 
     "parabolas_color": "k",
     "parabolas_width": "0.6",
