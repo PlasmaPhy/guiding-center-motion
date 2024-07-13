@@ -1,5 +1,6 @@
 import numpy as np
 import Functions.Qfactors as Qfactors
+from scipy.special import erf
 
 
 class Parabolic:
@@ -24,17 +25,12 @@ class Parabolic:
             np.array: calculated componets
         """
 
-        # Field components
-        Er = self.a * r**2 + self.b
-        Etheta = 0
-        Ezeta = 0
-
         # Derivatives of Φ with respect to ψ_π, θ
         psi = r**2 / 2
         Phi_der_psip = -self.q.q_of_psi(psi) * (self.a * r - self.b / r)
         Phi_der_theta = 0
 
-        return np.array([Er, Etheta, Ezeta, Phi_der_psip, Phi_der_theta])
+        return np.array([Phi_der_psip, Phi_der_theta])
 
     def Er_of_r(self, r):  # Ready to commit
         """Returns the value of the field Er
@@ -68,6 +64,71 @@ class Parabolic:
         Returns:
             _type_: _description_
         """
+        # Doesn't work yet
+        Phimin = self.Phi_of_r(self.psi_wall)
+        Phimax = self.Phi_of_r(0)
+        return np.array([Phimin, Phimax])
+
+
+class Radial:
+    """Initializes an electric field of the form:
+    E(r) = -Ea*exp(-(r-r_a)^2 / r_w^2))"""
+
+    def __init__(self, psi_wall, q=Qfactors.Unity()):  # Ready to commit
+        self.Ea = 75  # kV/m
+        self.r0 = 1
+        self.ra = 0.98 * self.r0
+        self.rw = self.r0 / 50  # waist, not wall
+        self.psia = self.ra**2 / 2
+        self.psiw = self.rw**2 / 2  # waist, not wall
+
+        # Square roots, makes it a bit faster
+        self.sr_psia = np.sqrt(self.psia)
+        self.sr_psiw = np.sqrt(self.psiw)
+
+        self.q = q
+        self.psi_wall = psi_wall
+        self.psip_wall = q.psip_from_psi(psi_wall)
+
+    def orbit(self, r):  # Ready to commit
+
+        # Derivatives of Φ with respect to ψ_π, θ
+        psi = r**2 / 2
+        Phi_der_psip = (
+            self.q.q_of_psi(psi)
+            * self.Ea
+            / (np.sqrt(2) * psi)
+            * np.exp(-((np.sqrt(psi) - self.sr_psia) ** 2) / self.psiw)
+        )
+        Phi_der_theta = 0
+
+        return np.array([Phi_der_psip, Phi_der_theta])
+
+    def Er_of_psi(self, psi):  # Ready to commit
+        Er = -self.Ea * np.exp(-((np.sqrt(2 * psi) - self.ra) ** 2) / self.rw**2)
+        return Er
+
+    def Phi_of_r(self, r):  # Ready to commit
+        Phi = (
+            self.Ea
+            * np.sqrt(np.pi * self.psiw / 2)
+            * (
+                erf((r / np.sqrt(2) - self.sr_psia) / self.sr_psiw)
+                + erf(self.sr_psia / self.sr_psiw)
+            )
+        )
+        return Phi
+
+    def Phi_of_psi(self, psi):  # Ready to commit
+        Phi = (
+            self.Ea
+            * np.sqrt(np.pi * self.psiw / 2)
+            * (erf((np.sqrt(psi) - self.sr_psia) / self.sr_psiw) + erf(self.sr_psia / self.sr_psiw))
+        )
+        return Phi
+
+    def extremums(self):  # Ready to commit
+        # Doesn't work yet
         Phimin = self.Phi_of_r(self.psi_wall)
         Phimax = self.Phi_of_r(0)
         return np.array([Phimin, Phimax])

@@ -70,7 +70,10 @@ class Particle:
         self.tspan = tspan
         # psi_p > 0.5 warning
         if self.psip_wall >= 0.5:
-            print(f"WARNING: psip_wall = {self.psip_wall} >= 0,5." + "Parabolas and other stuff will probably not work")
+            print(
+                f"WARNING: psip_wall = {self.psip_wall} >= 0,5."
+                + "Parabolas and other stuff will probably not work"
+            )
 
         # Logic variables
         self.calculated_orbit = False
@@ -84,7 +87,10 @@ class Particle:
         self.orbit()
 
     def __str__(self):  # Ready to commit
-        string = f'Particle of Species:\t "{self.species}"\n' + f"Calculated orbit:\t {self.calculated_orbit}\n\n"
+        string = (
+            f'Particle of Species:\t "{self.species}"\n'
+            + f"Calculated orbit:\t {self.calculated_orbit}\n\n"
+        )
         # Also grab orbit_type() results
         string += self.orbit_type(info=True)
         return string
@@ -112,7 +118,7 @@ class Particle:
             if self.Efield is None:
                 phi_der_psip = phi_der_theta = 0
             else:
-                *_, phi_der_psip, phi_der_theta = self.Efield.orbit(r)
+                phi_der_psip, phi_der_theta = self.Efield.orbit(r)
 
             q_value = self.q.q_of_psi(psi)
             sin_theta = np.sin(theta)
@@ -170,7 +176,11 @@ class Particle:
         self.E = self.rho0**2 * self.B_init**2 / 2 + self.mu * self.B_init
 
         # Will be passed at __str__() to be printed in the end
-        self.orbit_type_str = "Constants of motion:\n" + f"Particle Energy:\tE = {self.E}\n" + f"Toroidal Momenta:\tPζ = {self.Pz0}\n"
+        self.orbit_type_str = (
+            "Constants of motion:\n"
+            + f"Particle Energy:\tE = {self.E}\n"
+            + f"Toroidal Momenta:\tPζ = {self.Pz0}\n"
+        )
 
         # Calculate Bmin and Bmax. In LAR, B decreases outwards.
         Bmin = 1 - np.sqrt(2 * self.psip_wall)  # "Bmin occurs at psip_wall, θ = 0"
@@ -198,7 +208,10 @@ class Particle:
             self.l_or_c = "Confined"
 
         self.orbit_type_str = (
-            "Constants of motion:\n" + f"Particle Energy:\tE = {np.around(self.E,8)}\n" + f"Toroidal Momenta:\tPζ = {self.Pz0}\n\n" + f"Orbit Type: {self.t_or_p} - {self.l_or_c}\n"
+            "Constants of motion:\n"
+            + f"Particle Energy:\tE = {np.around(self.E,8)}\n"
+            + f"Toroidal Momenta:\tPζ = {self.Pz0}\n\n"
+            + f"Orbit Type: {self.t_or_p} - {self.l_or_c}\n"
         )
 
         if info:
@@ -227,8 +240,8 @@ class Particle:
 
     def plot_electric(self):  # BETA
         psi = np.linspace(0, 1.1 * self.psi_wall, 1000) / self.psi_wall
-        Er = self.Efield.Er_of_r(psi)
-        Phi = self.Efield.Phi_of_r(psi)
+        Er = self.Efield.Er_of_psi(psi)
+        Phi = self.Efield.Phi_of_psi(psi)
 
         fig, ax = plt.subplots(1, 2, figsize=(14, 5))
         ax[0].plot(psi, Er, color="b", linewidth=3)
@@ -334,11 +347,12 @@ class Particle:
         """
         fig = plt.figure(figsize=(6, 4))
         ax = fig.add_subplot(111)
-        ax.scatter(self.theta_plot, self.Ptheta, **self.Config.drift_scatter_kw)
 
         # Set theta lim. Mods all thetas to 2π
         self.theta_min, self.theta_max = theta_lim
         self.theta_plot = utils.theta_plot(self.theta, theta_lim)
+
+        ax.scatter(self.theta_plot, self.Ptheta, **self.Config.drift_scatter_kw)
 
         # Set psi limits
         if psi_lim == "auto":  # Use ylim from drift plots
@@ -459,8 +473,12 @@ class Particle:
         rtorus = 0.5
 
         # Cartesian
-        x = (Rtorus + np.sqrt(2 * self.psi[:points]) * np.cos(self.theta[:points])) * np.cos(self.z[:points])
-        y = (Rtorus + np.sqrt(2 * self.psi[:points]) * np.cos(self.theta[:points])) * np.sin(self.z[:points])
+        x = (Rtorus + np.sqrt(2 * self.psi[:points]) * np.cos(self.theta[:points])) * np.cos(
+            self.z[:points]
+        )
+        y = (Rtorus + np.sqrt(2 * self.psi[:points]) * np.cos(self.theta[:points])) * np.sin(
+            self.z[:points]
+        )
         z = np.sin(self.theta[:points])
 
         # Set dpi
@@ -493,9 +511,6 @@ class Particle:
             cstride=5,
             **self.Config.torus3d_wall_kw,
         )
-
-        if full_alpha:
-            self.Config.torus3d_orbit_kw["alpha"] = 1
 
         ax.plot(x, y, z, **self.Config.torus3d_orbit_kw)
         ax.set_zlim([-3, 3])

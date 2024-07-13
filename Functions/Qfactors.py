@@ -53,7 +53,7 @@ class Hypergeometric:  # Ready to commit
         self.n = n
 
     def q_of_psi(self, psi):
-        return self.q0 * (1 + (psi / (self.psi_knee / self.q_wall)) ** self.n) ** (1 / self.n)
+        return self.q0 * (1 + (psi / (self.psi_knee / 1)) ** self.n) ** (1 / self.n)
 
     def q_of_psip(self, psip):
         psi = self.psi_from_psip(psip)
