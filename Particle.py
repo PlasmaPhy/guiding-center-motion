@@ -231,14 +231,23 @@ class Particle:
         if contour_Efield:
             if self.Efield is None:
                 Phi = 0 * theta  # Grid of zeros
-            elif self.Efield is not None:
-                Phi = self.Efield.Phi_of_r(r)
+                print("foo")
+            else:
+                Phi = self.Efield.Phi_of_psi(psi)
+                # print(Phi)
+                print("bar")
         else:
             Phi = 0 * theta  # Grid of zeros
+            print("foo2")
 
         return (Pz + psip) ** 2 * B**2 / (2 * self.g**2) + self.mu * B + Phi
 
     def plot_electric(self):  # BETA
+
+        if self.Efield is None:
+            print("No electric field")
+            return
+
         psi = np.linspace(0, 1.1 * self.psi_wall, 1000) / self.psi_wall
         Er = self.Efield.Er_of_psi(psi)
         Phi = self.Efield.Phi_of_psi(psi)
