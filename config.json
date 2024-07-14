@@ -12,7 +12,7 @@
     "drift_scatter_color": "red",
 
     "contour_grid_density": 100,
-    "contour_levels_default": 30,
+    "contour_levels_default": 15,
     "contour_cmap": "plasma",
 
     "parabolas_color": "k",
