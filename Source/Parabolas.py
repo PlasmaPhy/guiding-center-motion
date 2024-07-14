@@ -3,8 +3,8 @@ This class constructs the parabolas that classify each orbit type
 """
 
 import numpy as np
-import utils
 import matplotlib.pyplot as plt
+import Source.utils as utils
 import Functions.Qfactors as Qfactors
 
 
@@ -17,7 +17,9 @@ class Orbit_parabolas:
     the dashed comments.
     """
 
-    def __init__(self, E, q=Qfactors.Unity, B=[0, 1, 0], Efield=None, psi_wall=0.3):  # Ready to commit
+    def __init__(
+        self, E, q=Qfactors.Unity, B=[0, 1, 0], Efield=None, psi_wall=0.3
+    ):  # Ready to commit
         """Constructs the 3 parabolas and calculates the special points.
 
         Args:
@@ -158,7 +160,9 @@ class Parabola:
 
         # Calculate intrecepts/ extremums:
         self.discriminant = self.b**2 - 4 * self.a * self.c
-        self.x_intercepts = np.array([-self.b - np.sqrt(self.discriminant), -self.b + np.sqrt(self.discriminant)]) / (2 * self.a)
+        self.x_intercepts = np.array(
+            [-self.b - np.sqrt(self.discriminant), -self.b + np.sqrt(self.discriminant)]
+        ) / (2 * self.a)
         self.y_intercept = self.c
 
         if self.a > 0:

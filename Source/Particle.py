@@ -5,13 +5,14 @@ orbit type, and can draw several different plots
 
 import numpy as np
 import matplotlib.pyplot as plt
-import utils
-import Parabolas
 from importlib import reload
 from scipy.integrate import odeint
+import Source.utils as utils
+import Source.Parabolas as Parabolas
 import Functions.Qfactors as Qfactors
 
 reload(Parabolas)  # for debugging
+reload(utils)  # for debugging
 
 
 class Particle:
@@ -54,10 +55,10 @@ class Particle:
 
         # Initialization
         self.species = species
-        psip0 = q.psip_from_psi(init_cond[1])
-        rho0 = init_cond[3] + psip0  # Pz0 + psip0
-        init_cond.insert(2, psip0)
-        init_cond.insert(5, rho0)
+        self.psip0 = q.psip_from_psi(init_cond[1])
+        self.rho0 = init_cond[3] + self.psip0  # Pz0 + psip0
+        init_cond.insert(2, self.psip0)
+        init_cond.insert(5, self.rho0)
         self.init_cond = np.array(init_cond)
         self.mu = mu
         self.q = q
@@ -68,6 +69,7 @@ class Particle:
         self.psip_wall = self.q.psip_from_psi(self.psi_wall)
         self.psi_wall = np.sqrt(2 * psi_wall)
         self.tspan = tspan
+
         # psi_p > 0.5 warning
         if self.psip_wall >= 0.5:
             print(

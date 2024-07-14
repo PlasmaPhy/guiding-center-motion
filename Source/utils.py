@@ -1,7 +1,8 @@
 import json
 import numpy as np
 
-class Config_file():
+
+class Config_file:
     """Returns an object with plotting settings from config.json
 
     Plotting settings are stored as dictionaries stored in the object.
@@ -10,7 +11,7 @@ class Config_file():
     def __init__(self):
 
         # Set plot configurations dictionary from json file
-        with open("config.json") as jsonfile:
+        with open("Source/config.json") as jsonfile:
             self.config = json.load(jsonfile)
 
         # Time plots
@@ -38,7 +39,7 @@ class Config_file():
         }
         self.drift_xlabel_kw = {
             "rotation": 0,
-            "fontsize": self.config["drift_plots_xlabel_fontsize"]
+            "fontsize": self.config["drift_plots_xlabel_fontsize"],
         }
 
         # Orbit point
@@ -46,17 +47,17 @@ class Config_file():
             "markersize": self.config["orbit_point_size"],
             "marker": self.config["orbit_point_marker"],
             "markeredgecolor": self.config["orbit_point_edge_color"],
-            "markerfacecolor": self.config["orbit_point_face_color"]
+            "markerfacecolor": self.config["orbit_point_face_color"],
         }
 
         # Tori
         self.torus2d_wall_kw = {
             "c": self.config["torus2d_wall_color"],
-            "s": self.config["torus2d_wall_size"]
+            "s": self.config["torus2d_wall_size"],
         }
         self.torus2d_orbit_kw = {
             "c": self.config["torus2d_orbit_color"],
-            "s": self.config["torus2d_orbit_size"]
+            "s": self.config["torus2d_orbit_size"],
         }
         self.torus3d_wall_kw = {
             "color": self.config["torus3d_wall_color"],
@@ -65,13 +66,13 @@ class Config_file():
         self.torus3d_orbit_kw = {
             "color": self.config["torus3d_orbit_color"],
             "alpha": self.config["torus3d_orbit_alpha"],
-            "linewidth": self.config["torus3d_orbit_size"]
+            "linewidth": self.config["torus3d_orbit_size"],
         }
 
         # Parabolas
         self.parabolas_normal_plot_kw = {
             "color": self.config["parabolas_color"],
-            "linewidth": self.config["parabolas_width"]
+            "linewidth": self.config["parabolas_width"],
         }
         self.parabolas_dashed_plot_kw = {
             "color": self.config["dashed_color"],
@@ -80,15 +81,13 @@ class Config_file():
         self.vertical_line_plot_kw = {
             "color": self.config["dashed_color"],
             "linewidth": self.config["dashed_width"],
-            "linestyle": "--"           
+            "linestyle": "--",
         }
 
         self.contour_grid_density = self.config["contour_grid_density"]
         self.contour_levels_default = self.config["contour_levels_default"]
         self.contour_cmap = self.config["contour_cmap"]
 
-
-    
     def __getitem__(self, kw):
         """Makes object subscriptable
 
@@ -96,7 +95,8 @@ class Config_file():
         """
         return self.config.kw
 
-def theta_plot(theta, theta_lim = [0,2*np.pi]):
+
+def theta_plot(theta, theta_lim=[0, 2 * np.pi]):
     if theta_lim == [0, 2 * np.pi]:
         theta_plot = np.mod(theta, 2 * np.pi)
     elif theta_lim == [-np.pi, np.pi]:
