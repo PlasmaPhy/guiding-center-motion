@@ -5,7 +5,8 @@ from scipy.special import hyp2f1
 class Unity:  # Ready to commit
     """Initializes an object q with "q(ψ) = 1" """
 
-    which_ode = "both"
+    # def __init(self, psi_wall=1):
+    #     self.psi_wall = 1  # not needed
 
     def q_of_psi(self, psi):
         return 1
@@ -22,8 +23,6 @@ class Unity:  # Ready to commit
 
 class Parabolic:  # Ready to commit
     """Ιnitializes an object q with "q(ψ) = 1 + ψ^2" """
-
-    which_ode = "both"
 
     def q_of_psi(self, psi):
         return 1 + psi**2
@@ -45,15 +44,15 @@ class Hypergeometric:  # Ready to commit
     Needs psi_wall as input upon initialization.
     """
 
-    def __init__(self, psi_wall, q0=1.1, psi_knee=2.5, q_wall=3.5, n=2):
+    def __init__(self, psi_wall, q0=1.1, psi_knee=2.5, n=2):
         self.psi_wall = psi_wall
         self.q0 = q0
         self.psi_knee = psi_knee
-        self.q_wall = q_wall
         self.n = n
+        self.q_wall = self.q_of_psi(self.psi_wall)
 
     def q_of_psi(self, psi):
-        return self.q0 * (1 + (psi / (self.psi_knee / 1)) ** self.n) ** (1 / self.n)
+        return self.q0 * (1 + (psi / (self.psi_knee)) ** self.n) ** (1 / self.n)
 
     def q_of_psip(self, psip):
         psi = self.psi_from_psip(psip)
