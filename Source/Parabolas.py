@@ -37,33 +37,33 @@ class Orbit_parabolas:
         self.psi_wall = psi_wall
         self.psip_wall = self.q.psip_from_psi(psi_wall)
 
-        Bmin = 1 - np.sqrt(2 * self.psip_wall)  # "Bmin occurs at psip_wall, θ = 0"
-        Bmax = 1 + np.sqrt(2 * self.psip_wall)  # "Bmax occurs at psip_wall, θ = π"
+        Bmin = 1 - np.sqrt(2 * self.psi_wall)  # "Bmin occurs at psip_wall, θ = 0"
+        Bmax = 1 + np.sqrt(2 * self.psi_wall)  # "Bmax occurs at psip_wall, θ = π"
         B0 = 1
 
         # Electric Potential Components:
-        # if self.Efield is None:
-        #     Phimin = Phimax = Phi0 = 0
-        # else:
-        #     Phimin, Phimax = self.Efield.extremums()
-        #     Phi0 = self.Efield.Phi_of_r(0)
+        Phimin, Phimax = self.Efield.extremums()
+        Phi_wall = self.Efield.Phi_of_psi(self.psi_wall)
+        Phi0 = self.Efield.Phi_of_psi(0)
 
         # Parabolas constants [a, b, c]
         # __________________________________________________________
         # Top left
         abc1 = [
-            -B0 * Bmin * self.psip_wall**2 / (2 * self.g**2 * E),
-            -B0 * Bmin * self.psip_wall**2 / (self.g**2 * E),
-            -B0 * Bmin * self.psip_wall**2 / (2 * self.g**2 * E) + B0 / Bmin,
+            -B0 * Bmin * self.psi_wall**2 / (2 * self.g**2 * self.E),
+            -B0 * Bmin * self.psi_wall**2 / (self.g**2 * self.E),
+            -B0 * Bmin * self.psi_wall**2 / (2 * self.g**2 * self.E)
+            + B0 / Bmin * (1 - Phi_wall / self.E),
         ]
         # Bottom left
         abc2 = [
-            -B0 * Bmax * self.psip_wall**2 / (2 * self.g**2 * E),
-            -B0 * Bmax * self.psip_wall**2 / (self.g**2 * E),
-            -B0 * Bmax * self.psip_wall**2 / (2 * self.g**2 * E) + B0 / Bmax,
+            -B0 * Bmax * self.psi_wall**2 / (2 * self.g**2 * self.E),
+            -B0 * Bmax * self.psi_wall**2 / (self.g**2 * self.E),
+            -B0 * Bmax * self.psi_wall**2 / (2 * self.g**2 * self.E)
+            + B0 / Bmax * (1 - Phi_wall / self.E),
         ]
-        # Right
-        abc3 = [-(B0**2) * self.psip_wall**2 / (2 * self.g**2 * E), 0, 1]
+        # Right (Magnetic Axis)
+        abc3 = [-(B0**2) * self.psi_wall**2 / (2 * self.g**2 * self.E), 0, -Phi0 / self.E + 1]
         # __________________________________________________________
 
         # Calculate all x-intercepts and use the 2 outermost
@@ -109,6 +109,7 @@ class Orbit_parabolas:
         plt.xlabel("${P_\zeta}/{\psi_{wall}}$")
         plt.ylabel("$\dfrac{\mu B_0}{E}\t$", rotation=0)
         plt.title("Orbit types in the plane of $P_\zeta - \mu$ for fixed energy.")
+        plt.legend([f"Particle energy = {np.around(self.E,9)}"], loc="upper right")
 
     def plot_tp_boundary(self):  # Ready to commit
         """Plots the Trapped-Passing Boundary."""
@@ -124,14 +125,14 @@ class Orbit_parabolas:
         x1 = self.par2.get_extremum()[0]
         x2 = self.par3.get_extremum()[0]
 
-        x = np.linspace(x1, x2, 100)
+        x = np.linspace(x1, x2, 1000)
 
         B0 = 1
-        B1 = 1 - np.sqrt(-2 * self.psip_wall * x)
-        B2 = 1 + np.sqrt(-2 * self.psip_wall * x)
+        B1 = 1 - np.sqrt(-2 * self.psi_wall * x)
+        B2 = 1 + np.sqrt(-2 * self.psi_wall * x)
 
-        y1_plot = B0 / B1
-        y2_plot = B0 / B2
+        y1_plot = B0 / B1 * (1 - self.Efield.Phi_of_psi(0) / self.E)  # upper
+        y2_plot = B0 / B2 * (1 - self.Efield.Phi_of_psi(0) / self.E)  # lower
 
         plt.plot(x, y1_plot, **self.Config.parabolas_dashed_plot_kw)
         plt.plot(x, y2_plot, **self.Config.parabolas_dashed_plot_kw)
@@ -160,6 +161,10 @@ class Parabola:
 
         # Calculate intrecepts/ extremums:
         self.discriminant = self.b**2 - 4 * self.a * self.c
+        if self.discriminant < 0:
+            print("Parabola's discriminant is negative. Aborting...")
+            return
+
         self.x_intercepts = np.array(
             [-self.b - np.sqrt(self.discriminant), -self.b + np.sqrt(self.discriminant)]
         ) / (2 * self.a)
