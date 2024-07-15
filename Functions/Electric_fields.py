@@ -1,19 +1,40 @@
 import numpy as np
-import Functions.Qfactors as Qfactors
 from scipy.special import erf
+
+
+class Nofield:
+    """Initializes an electric field of 0
+
+    Exists to avoid compatibility issues.
+    """
+
+    def orbit(self, r):
+        return np.array([0, 0])
+
+    def Er_of_psi(self, psi):
+        return 0 * psi
+
+    def Phi_of_r(self, r):
+        return 0 * r
+
+    def Phi_of_psi(self, psi):
+        return 0 * psi
+
+    def extremums(self):
+        return np.array([0, 0])
 
 
 class Parabolic:
     """Initializes an electric field of the form E = ar^2 + b"""
 
-    def __init__(self, psi_wall, q=Qfactors.Unity()):  # Ready to commit
+    def __init__(self, psi_wall, q):
         self.a = 1
-        self.b = 0.1
+        self.b = 0
         self.q = q
         self.psi_wall = psi_wall
         self.psip_wall = q.psip_from_psi(psi_wall)
 
-    def orbit(self, r):  # Ready to commit
+    def orbit(self, r):
         """Calculates the E field values and certain derivatives of Φ.
 
         This function should only be used inside dSdt.
@@ -32,7 +53,7 @@ class Parabolic:
 
         return np.array([Phi_der_psip, Phi_der_theta])
 
-    def Er_of_psi(self, psi):  # Ready to commit
+    def Er_of_psi(self, psi):
         """Returns the value of the field Er
 
         Args:
@@ -45,7 +66,7 @@ class Parabolic:
         Er = self.a * r**2 + self.b
         return Er
 
-    def Phi_of_r(self, r):  # Ready to commit
+    def Phi_of_r(self, r):
         """Returns the value of the potential Φ
 
         Args:
@@ -58,7 +79,7 @@ class Parabolic:
         Phi = -(self.a / 3) * r**3 - self.b * r
         return Phi
 
-    def Phi_of_psi(self, psi):  # Ready to commit
+    def Phi_of_psi(self, psi):
         """Returns the value of the potential Φ
 
         Args:
@@ -71,7 +92,7 @@ class Parabolic:
         Phi = -(self.a / 3) * r**3 - self.b * r
         return Phi
 
-    def extremums(self):  # Ready to commit
+    def extremums(self):
         """Returns
 
         Returns:
@@ -85,13 +106,18 @@ class Parabolic:
 
 class Radial:
     """Initializes an electric field of the form:
-    E(r) = -Ea*exp(-(r-r_a)^2 / r_w^2))"""
+    E(r) = -Ea*exp(-(r-r_a)^2 / r_w^2))
 
-    def __init__(self, psi_wall, Ea=75, q=Qfactors.Unity()):  # Ready to commit
-        self.Ea = 75  # kV/m
-        self.r0 = 1
+    Caution if you change Ea's field. You must adjust extremums()
+    accordingly.
+    """
+
+    def __init__(self, psi_wall, q, Ea=75):
+        self.Ea = Ea  # kV/m
+        self.r0 = np.sqrt(2)  # magic
         self.ra = 0.98 * self.r0
-        self.rw = self.r0 / 5  # waist, not wall
+        self.Efield_min = self.ra**2 / 2
+        self.rw = self.r0 / 50  # waist, not wall
         self.psia = self.ra**2 / 2
         self.psiw = self.rw**2 / 2  # waist, not wall
 
@@ -103,7 +129,7 @@ class Radial:
         self.psi_wall = psi_wall
         self.psip_wall = q.psip_from_psi(psi_wall)
 
-    def orbit(self, r):  # Ready to commit
+    def orbit(self, r):
 
         # Derivatives of Φ with respect to ψ_π, θ
         psi = r**2 / 2
@@ -117,11 +143,11 @@ class Radial:
 
         return np.array([Phi_der_psip, Phi_der_theta])
 
-    def Er_of_psi(self, psi):  # Ready to commit
+    def Er_of_psi(self, psi):
         Er = -self.Ea * np.exp(-((np.sqrt(2 * psi) - self.ra) ** 2) / self.rw**2)
         return Er
 
-    def Phi_of_r(self, r):  # Ready to commit
+    def Phi_of_r(self, r):
         Phi = (
             self.Ea
             * np.sqrt(np.pi * self.psiw / 2)
@@ -132,7 +158,7 @@ class Radial:
         )
         return Phi
 
-    def Phi_of_psi(self, psi):  # Ready to commit
+    def Phi_of_psi(self, psi):
         Phi = (
             self.Ea
             * np.sqrt(np.pi * self.psiw / 2)
@@ -140,8 +166,7 @@ class Radial:
         )
         return Phi
 
-    def extremums(self):  # Ready to commit
-        # Doesn't work yet
-        Phimin = self.Phi_of_r(self.psi_wall)
-        Phimax = self.Phi_of_r(0)
+    def extremums(self):
+        Phimin = self.Phi_of_psi(0)
+        Phimax = self.Phi_of_psi(self.psi_wall)
         return np.array([Phimin, Phimax])
