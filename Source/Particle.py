@@ -5,14 +5,9 @@ orbit type, and can draw several different plots
 
 import numpy as np
 import matplotlib.pyplot as plt
-from importlib import reload
 from scipy.integrate import odeint
 import Source.utils as utils
 import Source.Parabolas as Parabolas
-import Functions.Qfactors as Qfactors
-
-reload(Parabolas)  # for debugging
-reload(utils)  # for debugging
 
 
 class Particle:
@@ -22,27 +17,17 @@ class Particle:
     should be changed in the ./Functions folder.
     """
 
-    def __init__(
-        self,
-        species,
-        init_cond,
-        mu,
-        tspan,
-        q=Qfactors.Unity,
-        B=[0, 1, 0],
-        Efield=None,
-        psi_wall=0.3,
-    ):  # Ready to commit
+    def __init__(self, species, init_cond, mu, tspan, q, B, Efield, psi_wall):
         """Initializes particle and grabs configuration.
 
         Args:
             species (str): the particle species
-            init_cond (np.array): 1x3 initial conditions array (self.init_cond includes
-                                2 more initial conditions)
+            init_cond (np.array): 1x3 initial conditions array (later, self.init_cond
+                                includes 2 more initial conditions)
             mu (float): magnetic moment
             tspan (np.array): The ODE interval, in [t0, tf, steps]
             q (object): Qfactor object that supports query methods for getting values
-                                of ψ/ψ_p and q
+                                of ψ(ψ_p), ψ_p(ψ) and q(ψ)
             B (list, optional): The 3 componets of the contravariant representation
                                 of the magnetic field B. Defaults to [0, 1, 0].
             E (object): Electric Field Object that supports query methods for getting
@@ -55,11 +40,15 @@ class Particle:
 
         # Initialization
         self.species = species
-        self.psip0 = q.psip_from_psi(init_cond[1])
-        self.rho0 = init_cond[3] + self.psip0  # Pz0 + psip0
+        self.theta0 = init_cond[0]
+        self.psi0 = init_cond[1]
+        self.z0 = init_cond[2]
+        self.Pz0 = init_cond[3]
+        self.psip0 = q.psip_from_psi(self.psi0)
+        self.rho0 = self.Pz0 + self.psip0  # Pz0 + psip0
         init_cond.insert(2, self.psip0)
         init_cond.insert(5, self.rho0)
-        self.init_cond = np.array(init_cond)
+        self.init_cond = np.array(init_cond)  # contains all 5
         self.mu = mu
         self.q = q
         self.B = B
@@ -67,7 +56,7 @@ class Particle:
         self.Efield = Efield
         self.psi_wall = psi_wall
         self.psip_wall = self.q.psip_from_psi(self.psi_wall)
-        self.psi_wall = np.sqrt(2 * psi_wall)
+        self.r_wall = np.sqrt(2 * psi_wall)
         self.tspan = tspan
 
         # psi_p > 0.5 warning
@@ -85,8 +74,8 @@ class Particle:
         # Grab configuration
         self.Config = utils.Config_file()
 
-        # Run
-        self.orbit()
+        # Calculate orbit type upon initialization
+        self.orbit_type_str = self.orbit_type(info=True)
 
     def __str__(self):  # Ready to commit
         string = (
@@ -94,7 +83,7 @@ class Particle:
             + f"Calculated orbit:\t {self.calculated_orbit}\n\n"
         )
         # Also grab orbit_type() results
-        string += self.orbit_type(info=True)
+        string += self.orbit_type_str
         return string
 
     def orbit(self):  # Ready to commit
@@ -160,7 +149,7 @@ class Particle:
         Calculates the orbit type given the initial conditions ONLY.
 
         Trapped/passing:
-        Te particle is trapped if rho vanishes, so we can
+        The particle is trapped if rho vanishes, so we can
         check if rho changes sign. Since rho = (2W - 2μB)^(1/2)/B, we need only to
         check under the root.
 
@@ -171,22 +160,19 @@ class Particle:
         """
 
         # Constants of Motion: Particle energy and Pz
-        self.theta0, self.psi0, self.psip0, self.z0, self.Pz0, self.rho0 = self.init_cond
-        self.r0 = np.sqrt(2 * self.psip0)
+        self.r0 = np.sqrt(2 * self.psi0)
         self.B_init = 1 - self.r0 * np.cos(self.theta0)
+        self.Phi_init = self.Efield.Phi_of_psi(self.psi0)
 
-        self.E = self.rho0**2 * self.B_init**2 / 2 + self.mu * self.B_init
-
-        # Will be passed at __str__() to be printed in the end
-        self.orbit_type_str = (
-            "Constants of motion:\n"
-            + f"Particle Energy:\tE = {self.E}\n"
-            + f"Toroidal Momenta:\tPζ = {self.Pz0}\n"
+        self.E = (  # Energy from initial conditions
+            (self.Pz0 + self.psip0) ** 2 * self.B_init**2 / (2 * self.g**2)
+            + self.mu * self.B_init
+            + self.Phi_init
         )
 
         # Calculate Bmin and Bmax. In LAR, B decreases outwards.
-        Bmin = 1 - np.sqrt(2 * self.psip_wall)  # "Bmin occurs at psip_wall, θ = 0"
-        Bmax = 1 + np.sqrt(2 * self.psip_wall)  # "Bmax occurs at psip_wall, θ = π"
+        Bmin = 1 - np.sqrt(2 * self.psi_wall)  # "Bmin occurs at psip_wall, θ = 0"
+        Bmax = 1 + np.sqrt(2 * self.psi_wall)  # "Bmax occurs at psip_wall, θ = π"
 
         # Find if trapped or passing from rho (White page 83)
         if (2 * self.E - 2 * self.mu * Bmin) * (2 * self.E - 2 * self.mu * Bmax) < 0:
@@ -231,16 +217,9 @@ class Particle:
         psip = self.q.psip_from_psi(psi)
 
         if contour_Efield:
-            if self.Efield is None:
-                Phi = 0 * theta  # Grid of zeros
-                print("foo")
-            else:
-                Phi = self.Efield.Phi_of_psi(psi)
-                # print(Phi)
-                print("bar")
+            Phi = self.Efield.Phi_of_psi(psi)
         else:
             Phi = 0 * theta  # Grid of zeros
-            print("foo2")
 
         return (Pz + psip) ** 2 * B**2 / (2 * self.g**2) + self.mu * B + Phi
 
@@ -257,14 +236,14 @@ class Particle:
         fig, ax = plt.subplots(1, 2, figsize=(14, 5))
         ax[0].plot(psi, Er, color="b", linewidth=3)
         ax[0].plot([1, 1], [Er.min(), Er.max()], color="r", linewidth=3)
-        ax[0].set_xlabel("$r/r_{wall}$")
-        ax[0].set_ylabel("$E_r$")
+        ax[0].set_xlabel("$\psi/\psi_{wall}$")
+        ax[0].set_ylabel("$E_r$", rotation=0)
         ax[0].set_title("Radial electric field")
 
         ax[1].plot(psi, Phi, color="b", linewidth=3)
         ax[1].plot([1, 1], [Phi.min(), Phi.max()], color="r", linewidth=3)
-        ax[1].set_xlabel("$r/r_{wall}$")
-        ax[1].set_ylabel("$Φ_r$")
+        ax[1].set_xlabel("$\psi/\psi_{wall}$")
+        ax[1].set_ylabel("$Φ_r$", rotation=0)
         ax[1].set_title("Electric Potential")
 
     def plot_time_evolution(self, percentage=100):  # Ready to commit
@@ -423,7 +402,9 @@ class Particle:
         ticks = ["-2π", "-3π/2", "-π", "-π/2", "0", "π/2", "π", "3π/2", "2π"]
         plt.xticks(np.linspace(-2 * np.pi, 2 * np.pi, 9), ticks)
         ax.set(xlim=[self.theta_min, self.theta_max], ylim=[psi_min, psi_max])
-        fig.colorbar(C, ax=ax, fraction=0.03, pad=0.2)
+        cbar = fig.colorbar(C, ax=ax, fraction=0.03, pad=0.2)
+        # Draw a small dash over the colorbar indicating the particle's energy level
+        cbar.ax.plot([0, 1], [self.E, self.E], linestyle="-", c="r", zorder=3)
 
     def plot_orbit_type_point(self):  # Ready to commit
         """Plots the particle point on the μ-Pz (normalized) plane."""
