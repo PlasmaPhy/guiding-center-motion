@@ -1,8 +1,8 @@
-import json
+import yaml
 import numpy as np
 
 
-class Config_file:
+class ConfigFile:
     """Returns an object with plotting settings from config.json
 
     Plotting settings are stored as dictionaries stored in the object.
@@ -11,8 +11,16 @@ class Config_file:
     def __init__(self):
 
         # Set plot configurations dictionary from json file
-        with open("Source/config.json") as jsonfile:
-            self.config = json.load(jsonfile)
+        with open("Source/config.yaml") as file:
+            self.config = yaml.safe_load(file)
+
+        # Physical Constants
+        self.constants = {
+            "elementary_charge": self.config["elementary_charge"],
+            "e_mass_keV": self.config["e_mass_keV"],
+            "e_mass_kg": self.config["e_mass_kg"],
+            "e_charge": self.config["e_charge"],
+        }
 
         # Time plots
         self.time_scatter_kw = {

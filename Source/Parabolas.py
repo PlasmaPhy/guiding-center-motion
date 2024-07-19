@@ -5,7 +5,6 @@ This class constructs the parabolas that classify each orbit type
 import numpy as np
 import matplotlib.pyplot as plt
 import Source.utils as utils
-import Functions.Qfactors as Qfactors
 
 
 class Orbit_parabolas:
@@ -17,34 +16,34 @@ class Orbit_parabolas:
     the dashed comments.
     """
 
-    def __init__(
-        self, E, q=Qfactors.Unity, B=[0, 1, 0], Efield=None, psi_wall=0.3
-    ):  # Ready to commit
+    def __init__(self, cwp):  # Ready to commit
         """Constructs the 3 parabolas and calculates the special points.
 
         Args:
             E (float): The particle's energy
             B (list, optional): The 3 componets of the contravariant representation
-                                of the magnetic field B. Defaults to [0, 1, 0].
+                                of the magnetic field B.
             psip_wall (float, optional): The value of ψ at the wall. Better be lower
-                                lower than 0.5. Defaults to 0.3.
+                                lower than 0.5.
         """
+        # Grab configuration
+        self.Config = utils.ConfigFile()
 
-        self.q = q
-        self.E = E
-        self.i, self.g, self.delta = B
-        self.Efield = Efield
-        self.psi_wall = psi_wall
-        self.psip_wall = self.q.psip_from_psi(psi_wall)
-
+        self.q = cwp.q
+        self.E = cwp.E
+        self.i, self.g, self.delta = cwp.B
+        self.Efield = cwp.Efield
+        self.psi_wall = cwp.psi_wall
+        self.psip_wall = self.q.psip_from_psi(cwp.psi_wall)
+        # self.psi_wall = self.psip_wall  #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         Bmin = 1 - np.sqrt(2 * self.psi_wall)  # "Bmin occurs at psip_wall, θ = 0"
         Bmax = 1 + np.sqrt(2 * self.psi_wall)  # "Bmax occurs at psip_wall, θ = π"
         B0 = 1
 
         # Electric Potential Components:
-        Phimin, Phimax = self.Efield.extremums()
-        Phi_wall = self.Efield.Phi_of_psi(self.psi_wall)
-        Phi0 = self.Efield.Phi_of_psi(0)
+        e_charge = cwp.charge
+        Phi0 = self.Efield.Phi_of_psi(0) * e_charge
+        Phi_wall = self.Efield.Phi_of_psi(self.psi_wall) * e_charge
 
         # Parabolas constants [a, b, c]
         # __________________________________________________________
@@ -82,10 +81,15 @@ class Orbit_parabolas:
             ]
         )
 
+        extremums = np.array(
+            [self.par1.get_extremum()[1], self.par2.get_extremum()[1], self.par3.get_extremum()[1]]
+        )
+
         self.xlim = [x_intercepts.min(), x_intercepts.max()]
+        self.ylim = [0, 1.1 * extremums.max()]
 
         # Grab configuration
-        self.Config = utils.Config_file()
+        self.Config = utils.ConfigFile()
 
     def plot_parabolas(self):  # Ready to commit
         """Plots the 3 parabolas."""
@@ -105,8 +109,7 @@ class Orbit_parabolas:
         plt.gca().set_xlim(self.xlim)
         top_par = Parabola(self.abcs[0])
         _, top = top_par.get_extremum()
-        plt.gca().set_ylim(bottom=0, top=1.1 * top)
-        plt.xlabel("${P_\zeta}/{\psi_{wall}}$")
+        plt.gca().set_ylim(bottom=self.ylim[0], top=self.ylim[1])
         plt.ylabel("$\dfrac{\mu B_0}{E}\t$", rotation=0)
         plt.title("Orbit types in the plane of $P_\zeta - \mu$ for fixed energy.")
         plt.legend([f"Particle energy = {np.around(self.E,9)}"], loc="upper right")
@@ -182,7 +185,7 @@ class Parabola:
             self.max = self.a * self.max_pos**2 + self.b * self.max_pos + self.c
 
         # Grab configuration
-        # self.Config = utils.Config_file()
+        # self.Config = utils.ConfigFile()
 
     def get_x_intercepts(self):  # Should fix the case that no intercepts exist
         """Returns the 2 x-intercepts as an array"""

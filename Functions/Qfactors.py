@@ -9,20 +9,20 @@ class Unity:  # Ready to commit
     #     self.psi_wall = 1  # not needed
 
     def q_of_psi(self, psi):
-        return 1
+        return np.ones(psi.shape)
 
     def q_of_psip(self, psip):
-        return 1
+        return np.ones(psip.shape)
 
     def psi_from_psip(self, psip):
-        return psip
+        return psip  # * np.ones(psip.shape())
 
     def psip_from_psi(self, psi):
-        return psi
+        return psi  # * np.ones(psi.shape())
 
 
 class Parabolic:  # Ready to commit
-    """Ιnitializes an object q with "q(ψ) = 1 + ψ^2" """
+    """Initializes an object q with "q(ψ) = 1 + ψ^2" """
 
     def q_of_psi(self, psi):
         return 1 + psi**2
@@ -47,7 +47,7 @@ class Hypergeometric:  # Ready to commit
     def __init__(self, psi_wall, q0=1.1, psi_knee=2.5, n=2):
         self.psi_wall = psi_wall
         self.q0 = q0
-        self.psi_knee = psi_knee
+        self.psi_knee = 0.75 * self.psi_wall
         self.n = n
         self.q_wall = self.q_of_psi(self.psi_wall)
 

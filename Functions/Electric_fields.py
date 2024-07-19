@@ -8,7 +8,7 @@ class Nofield:
     Exists to avoid compatibility issues.
     """
 
-    def orbit(self, r):
+    def Phi_der_of_psi(self, psi):
         return np.array([0, 0])
 
     def Er_of_psi(self, psi):
@@ -28,13 +28,13 @@ class Parabolic:
     """Initializes an electric field of the form E = ar^2 + b"""
 
     def __init__(self, psi_wall, q):
-        self.a = 1
+        self.a = -1
         self.b = 0
         self.q = q
         self.psi_wall = psi_wall
         self.psip_wall = q.psip_from_psi(psi_wall)
 
-    def orbit(self, r):
+    def Phi_der_of_psi(self, psi):
         """Calculates the E field values and certain derivatives of Φ.
 
         This function should only be used inside dSdt.
@@ -47,7 +47,7 @@ class Parabolic:
         """
 
         # Derivatives of Φ with respect to ψ_π, θ
-        psi = r**2 / 2
+        r = np.sqrt(2 * psi)
         Phi_der_psip = -self.q.q_of_psi(psi) * (self.a * r - self.b / r)
         Phi_der_theta = 0
 
@@ -114,8 +114,8 @@ class Radial:
 
     def __init__(self, psi_wall, q, Ea=75):
         self.Ea = Ea  # kV/m
-        self.r0 = np.sqrt(2)  # magic
-        self.ra = 0.98 * self.r0
+        self.r0 = np.sqrt(2 * psi_wall)
+        self.ra = 0.9 * self.r0
         self.Efield_min = self.ra**2 / 2
         self.rw = self.r0 / 50  # waist, not wall
         self.psia = self.ra**2 / 2
@@ -129,10 +129,9 @@ class Radial:
         self.psi_wall = psi_wall
         self.psip_wall = q.psip_from_psi(psi_wall)
 
-    def orbit(self, r):
+    def Phi_der_of_psi(self, psi):
 
-        # Derivatives of Φ with respect to ψ_π, θ
-        psi = r**2 / 2
+        # Derivatives of Φ(ψ) with respect to ψ_π, θ
         Phi_der_psip = (
             self.q.q_of_psi(psi)
             * self.Ea
@@ -144,18 +143,13 @@ class Radial:
         return np.array([Phi_der_psip, Phi_der_theta])
 
     def Er_of_psi(self, psi):
-        Er = -self.Ea * np.exp(-((np.sqrt(2 * psi) - self.ra) ** 2) / self.rw**2)
+        r = np.sqrt(2 * psi)
+        Er = -self.Ea * np.exp(-((r - self.ra) ** 2) / self.rw**2)
         return Er
 
     def Phi_of_r(self, r):
-        Phi = (
-            self.Ea
-            * np.sqrt(np.pi * self.psiw / 2)
-            * (
-                erf((r / np.sqrt(2) - self.sr_psia) / self.sr_psiw)
-                + erf(self.sr_psia / self.sr_psiw)
-            )
-        )
+        psi = r**2 / 2
+        Phi = self.Phi_of_psi(psi)
         return Phi
 
     def Phi_of_psi(self, psi):

@@ -36,3 +36,7 @@
         cwp = <particle name>
 
 7. Tρέχουμε το Notebook
+
+$$
+E(r) = -E_a \exp{\bigg[ -\dfrac{(r-r_a)^2}{r^2_w} \bigg]}
+$$
