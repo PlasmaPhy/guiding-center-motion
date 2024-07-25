@@ -115,9 +115,9 @@ class Radial:
     def __init__(self, psi_wall, q, Ea=75):
         self.Ea = Ea  # kV/m
         self.r0 = np.sqrt(2 * psi_wall)
-        self.ra = 0.9 * self.r0
+        self.ra = 0.9 * self.r0  # Defines the minimum point
         self.Efield_min = self.ra**2 / 2
-        self.rw = self.r0 / 50  # waist, not wall
+        self.rw = self.r0 / 20  # waist, not wall
         self.psia = self.ra**2 / 2
         self.psiw = self.rw**2 / 2  # waist, not wall
 
