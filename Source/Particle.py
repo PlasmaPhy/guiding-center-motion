@@ -44,10 +44,12 @@ class Particle:
 
         # Initialization
         self.species = species
+        self.mass_amu = self.Config.constants[self.species + "_mass_amu"]
         self.mass_keV = self.Config.constants[self.species + "_mass_keV"]
         self.mass_kg = self.Config.constants[self.species + "_mass_kg"]
         self.charge = self.Config.constants[self.species + "_charge"]
         self.elementary_charge = self.Config.constants["elementary_charge"]
+        self.Z = self.Config.constants[self.species + "_Z"]
 
         self.theta0 = init_cond[0]
         self.psi0 = init_cond[1]
@@ -63,13 +65,14 @@ class Particle:
         self.mu = mu
         self.q = q
         self.B = B
-        self.I, self.g, self.delta = self.B
+        self.I, self.g, self.B0 = self.B  # Β0 in Gauss
         self.Efield = Efield
         self.psi_wall = psi_wall
         self.psip_wall = self.q.psip_from_psi(self.psi_wall)
         self.r0 = np.sqrt(2 * self.psi0)
         self.r_wall = np.sqrt(2 * psi_wall)
 
+        self.R = 1  # meters
         self.Baxis = 1
         self.B_init = 1 - self.r0 * np.cos(self.theta0)
         self.Phi_init = self.Efield.Phi_of_psi(self.psi0)
@@ -91,13 +94,8 @@ class Particle:
         print(self.__str__())
 
     def __str__(self):
-        string = (
-            f'Particle of Species:\t "{self.species}"\n'
-            + f"Calculated orbit:\t {self.calculated_orbit}\n\n"
-        )
-        # Also grab orbit_type() results
-        string += self.orbit_type_str
-        return string
+        # grab orbit_type() results
+        return self.orbit_type_str
 
     def orbit(self):
         """Calculates the orbit of the particle.
@@ -112,7 +110,7 @@ class Particle:
         if self.calculated_orbit:
             return
 
-        def dSdt_psi(t, S, mu=None):
+        def dSdt(t, S, mu=None):
             """Sets the diff equations system to pass to scipy"""
 
             theta, psi, psip, z, rho = S
@@ -123,7 +121,7 @@ class Particle:
             sin_theta = np.sin(theta)
             cos_theta = np.cos(theta)
             r = np.sqrt(2 * psi)
-            B = 1 - r * cos_theta
+            B = 1 - r * cos_theta  # B0?
             par = self.mu + rho**2 * B
             bracket1 = -par * q_value * cos_theta / r + phi_der_psip
             bracket2 = par * r * sin_theta + phi_der_theta
@@ -139,7 +137,7 @@ class Particle:
             return np.array([theta_dot, psi_dot, psip_dot, z_dot, rho_dot])
 
         sol_init = np.delete(self.init_cond, 4)  # Drop Pz0
-        self.sol = odeint(dSdt_psi, y0=sol_init, t=self.tspan, tfirst=True)
+        self.sol = odeint(dSdt, y0=sol_init, t=self.tspan, tfirst=True)
 
         self.theta = self.sol.T[0]
         self.psi = self.sol.T[1]
@@ -168,13 +166,21 @@ class Particle:
 
         """
 
-        # Constants of Motion: Particle energy and Pz
+        # Calculate conversion factors
+        self.conversion_factors()
 
+        # Constants of Motion: Particle energy and Pz
         self.E = (  # Energy from initial conditions
             (self.Pz0 + self.psip0) ** 2 * self.B_init**2 / (2 * self.g**2)
             + self.mu * self.B_init
             + self.Phi_init
         )
+        self.E_Joule = self.norm_to_J * self.E  # Energy in Joules
+        self.E_eV = self.J_to_eV * self.E_Joule  # Energy in eV
+
+        self.gyro_radius = np.abs(
+            np.sqrt(self.mass_kg * self.E_Joule) / (self.B0 * self.Z)
+        )  # ρ in m
 
         # Calculate Bmin and Bmax. In LAR, B decreases outwards.
         self.Bmin = 1 - np.sqrt(2 * self.psi_wall)  # "Bmin occurs at psi_wall, θ = 0"
@@ -191,7 +197,6 @@ class Particle:
         # Find if lost or confined
         orbit_x = self.Pz0 / self.psip_wall
         orbit_y = self.mu / self.E
-        self.calc_normal_energies()  # Calculate energy in keV
         foo = Parabolas.Orbit_parabolas(self)
 
         # Recalculate y by reconstructing the parabola (there might be a better way
@@ -207,32 +212,44 @@ class Particle:
         # String to return to __str__()
         self.orbit_type_str = (
             "Constants of motion:\n"
-            + "Particle Energy (normalized):\tE = {:e}\n".format(self.E)
-            + "Particle Energy (keV):\t\tE = {:e} keV ΛΑΘΟΣ ΜΑΛΛΟΝ :(\n".format(self.EkeV)
-            + "Gyro frequency:\t\t\tω = {:e} Hz \n".format(self.w0)
-            + f"Toroidal Momenta:\t\tPζ = {self.Pz0}\n\n"
-            + f"Orbit Type: {self.t_or_p} - {self.l_or_c}\n"
+            + "\tParticle Energy (normalized):\tE = {:e}\n".format(self.E)
+            + "\tParticle Energy (keV):\t\tE = {:e} eV\n".format(self.E_eV)
+            + f"\tToroidal Momenta:\t\tPζ = {self.Pz0}\n\n"
+            + "Other Quantities:\n"
+            + f'\tParticle of Species:\t\t"{self.species}"\n'
+            + f"\tOrbit Type:\t\t\t{self.t_or_p} - {self.l_or_c}\n"
+            + f"\tMajor Radius:\t\t\tR = {self.R} meters\n"
+            + "\tTime unit:\t\t\tω = {:e} Hz \n".format(self.w0)
+            + "\tGyro radius: \t\t\tρ = {:e} cm \n".format(self.gyro_radius * 100)
         )
 
         if info:
             return self.orbit_type_str
 
-    def calc_normal_energies(self):  # BETA
-        m = self.mass_kg
-        e = self.charge
+    def conversion_factors(self):  # BETA
+        e = self.charge  # 1.6*10**(-19)C
+        m_kg = self.mass_kg
+        B = self.B0  # Gauss
+        R = self.R  # meters
 
-        self.R = 0.01  # meters?
-        self.rtorus = np.sqrt(2 * self.psi_wall)
+        self.w0 = np.abs(e) * 10 ** (-4) * B / (m_kg)  # s^-1
+        self.E_unit = m_kg * self.w0**2 * R**2  # Multiply normalised energy to get J
 
-        self.w0 = np.abs(e * self.B_init / m)  # s^-1 if [B]=Tesla
-        self.conversion_factor = m * self.w0**2 * self.R**2
-        self.EJoule = self.E * self.conversion_factor
-        self.EkeV = self.EJoule / np.abs(e)
+        # Conversion Factors
+        self.norm_to_J = self.E_unit
+        self.J_to_eV = 1 / self.elementary_charge
+        self.norm_to_eV = self.norm_to_J * self.J_to_eV
+        self.eV_to_norm = 1 / self.norm_to_eV
+        self.kV_to_V = 1000
+        self.V_to_eV = self.elementary_charge
+        self.kV_to_eV = self.kV_to_V * self.V_to_eV
+        self.kV_to_keV = self.kV_to_eV / 1000
+        self.kV_to_norm = self.kV_to_eV * self.eV_to_norm
 
-    def calcW_grid(self, theta, psi, Pz, contour_Efield=True):
+    def calcW_grid(self, theta, psi, Pz, contour_Phi=True, units=True):
         """Returns a single value or a grid of the calculated Hamiltonian.
 
-        Depending on the value of contour_Efield, it can include the Electric
+        Depending on the value of contour_Phi, it can include the Electric
         Potential energy or not
         """
 
@@ -240,13 +257,22 @@ class Particle:
         B = 1 - r * np.cos(theta)
         psip = self.q.psip_from_psi(psi)
 
-        if contour_Efield:
-            # Efield returns Phi in [kV], so we need to converted to normalized energy somehow
+        W_magnetic = (Pz + psip) ** 2 * B**2 / (2 * self.g**2) + self.mu * B
+
+        if contour_Phi:
             Phi = self.Efield.Phi_of_psi(psi)
+            # Phi *= self.kV_to_norm
         else:
             Phi = 0 * theta  # Grid of zeros
 
-        return (Pz + psip) ** 2 * B**2 / (2 * self.g**2) + self.mu * B + Phi
+        W = W_magnetic + Phi  # all normalized
+
+        if units == "eV":
+            W *= self.norm_to_eV
+        elif units == "keV":
+            W *= self.norm_to_eV / 1000
+
+        return W
 
     def plot_electric(self, q_plot=False, zoom=None):
         """Plots the electric field, potential, and q factor
@@ -406,7 +432,8 @@ class Particle:
         theta_lim,
         psi_lim="auto",
         plot_drift=True,
-        contour_Efield=True,
+        contour_Phi=True,
+        units="keV",
         levels=None,
     ):
         """Draws a 2D contour plot of the Hamiltonian
@@ -418,9 +445,15 @@ class Particle:
             theta_lim (str/list, optional): "auto" uses the same limits from the
                     previous drift plots. Defaults to "auto".
             psi_lim (str/list, optional): same as theta_lim. Defaults to "auto".
+            plot_drift (bool, optional): Whether or not to plot θ=Ρθ drift on top.
+            contour_Phi (bool, optional): Whether or not to add the Φ term in the
+                    energy contour.
+            units (str, optional): The units in which energies are displayed. Must
+                    be either "normal", "eV", or "keV".
             levels (int, optional): The number of contour levels. Defaults to
                     Config setting.
         """
+
         fig = plt.figure(figsize=(6, 4))
         ax = fig.add_subplot(111)
 
@@ -429,21 +462,44 @@ class Particle:
         self.theta_plot = utils.theta_plot(self.theta, theta_lim)
 
         if plot_drift:
-            ax.scatter(self.theta_plot, self.Ptheta, **self.Config.drift_scatter_kw, zorder=2)
+            ax.scatter(
+                self.theta_plot,
+                self.Ptheta / self.psi_wall,
+                **self.Config.drift_scatter_kw,
+                zorder=2,
+            )
 
-        # Set psi limits
-        if psi_lim == "auto":  # Use ylim from drift plots
-            psi_min, psi_max = ax.get_ylim()
+        if units == "normal":
+            label = "E (normalized)"
+            E_label = self.E
+        elif units == "eV":
+            label = "E (eV)"
+            E_label = self.E_eV
+        elif units == "keV":
+            label = "E (keV)"
+            E_label = self.E_eV / 1000
         else:
-            psi_min, psi_max = psi_lim
+            print('units must be either "normal", "eV" or "keV"')
+            return
+
+        # Set psi limits (Normalised to psi_wall)
+        if psi_lim == "auto":
+            psi_diff = self.psi.max() - self.psi.min()
+            psi_mid = (self.psi.max() + self.psi.min()) / 2
+            psi_lower = max(0, psi_mid - 0.6 * psi_diff)
+            psi_higher = psi_mid + 0.6 * psi_diff
+            psi_lim = np.array([psi_lower, psi_higher])
+            psi_lim /= self.psi_wall
+        psi_min = psi_lim[0]
+        psi_max = psi_lim[1]
 
         # Calculate Energy values
         grid_density = self.Config.contour_grid_density
         theta, psi = np.meshgrid(
             np.linspace(self.theta_min, self.theta_max, grid_density),
-            np.linspace(psi_min, psi_max, grid_density),
+            np.linspace(psi_min * self.psi_wall, psi_max * self.psi_wall, grid_density),
         )
-        values = self.calcW_grid(theta, psi, self.Pz0, contour_Efield)
+        values = self.calcW_grid(theta, psi, self.Pz0, contour_Phi, units)
         span = np.array([values.min(), values.max()])
 
         # Create Figure
@@ -457,24 +513,23 @@ class Particle:
             "zorder": 1,
         }
 
-        ax.set_facecolor("white")
-
         # Contour plot
-        C = ax.contourf(theta, psi, values, **contour_kw)
+        C = ax.contourf(theta, psi / self.psi_wall, values, **contour_kw)
         ax.set_xlabel("$\\theta$")
-        ax.set_ylabel("$\\psi\t$", rotation=0)
+        ax.set_ylabel("$\\psi/\\psi_{wall}\t$", rotation=90)
         ticks = ["-2π", "-3π/2", "-π", "-π/2", "0", "π/2", "π", "3π/2", "2π"]
         plt.xticks(np.linspace(-2 * np.pi, 2 * np.pi, 9), ticks)
-        ax.set(xlim=[self.theta_min, self.theta_max], ylim=[psi_min, psi_max])
-        cbar = fig.colorbar(C, ax=ax, fraction=0.03, pad=0.2)
+        ax.set(xlim=[self.theta_min, self.theta_max], ylim=psi_lim)
+        ax.set_facecolor("white")
+        cbar = fig.colorbar(C, ax=ax, fraction=0.03, pad=0.2, label=label)
         # Draw a small dash over the colorbar indicating the particle's energy level
-        cbar.ax.plot([0, 1], [self.E, self.E], linestyle="-", c="r", zorder=3)
+        cbar.ax.plot([0, 1], [E_label, E_label], linestyle="-", c="r", zorder=3)
 
-    def plot_orbit_type_point(self):
+    def plot_orbit_type_point(self):  # Needs checking
         """Plots the particle point on the μ-Pz (normalized) plane."""
 
         x = self.Pz0 / self.psip_wall
-        y = self.mu * self.Baxis / self.E
+        y = self.mu * self.B0 / self.E_eV
 
         plt.plot(x, y, **self.Config.orbit_point_kw)
         label = "  Particle " + f"({self.t_or_p[0]}-{self.l_or_c[0]})"
@@ -555,7 +610,7 @@ class Particle:
         z_plot = self.z[:points]
 
         Rtorus = self.R
-        rtorus = 1.1 * np.sqrt(2 * self.psi.max())
+        rtorus = 1.1 * np.sqrt(2 * psi_plot.max())
 
         # Cartesian
         x = (Rtorus + np.sqrt(2 * psi_plot) * np.cos(theta_plot)) * np.cos(z_plot)
@@ -568,11 +623,15 @@ class Particle:
         else:
             dpi = 300
 
+        # plt.rcParams["pad_inches"] = 0
+
         fig, ax = plt.subplots(
-            figsize=(10, 10),
             dpi=dpi,
             subplot_kw={"projection": "3d"},
+            **{"figsize": (10, 6), "frameon": False},
         )
+        ax.set_axis_off()
+
         # Torus Surface
         theta_torus = np.linspace(0, 2 * np.pi, 400)
         z_torus = theta_torus
@@ -582,7 +641,7 @@ class Particle:
         z_torus = np.sin(theta_torus)
 
         # Plot z-axis
-        ax.plot([0, 0], [0, 0], [-5, 5], color="k", alpha=0.4)
+        ax.plot([0, 0], [0, 0], [-8, 6], color="k", alpha=0.4, linewidth=0.5)
         # Plot wall surface
         ax.plot_surface(
             x_torus,
@@ -596,15 +655,14 @@ class Particle:
         custom_kw = self.Config.torus3d_orbit_kw.copy()
         if bold:
             custom_kw["alpha"] = 1
-            custom_kw["linewidth"] *= 5
+            custom_kw["linewidth"] *= 3
 
         if white_background:
             ax.set_facecolor("white")
 
         ax.plot(x, y, z, **custom_kw, zorder=1)
-        ax.set_zlim([-3, 3])
-        ax.set_box_aspect((1, 1, 0.5), zoom=1.15)
+        # ax.set_zlim([-8, 8])
+        ax.set_box_aspect((1, 1, 0.5), zoom=1.1)
         ax.set_xlim3d(0.8 * x_torus.min(), 0.8 * x_torus.max())
         ax.set_ylim3d(0.8 * y_torus.min(), 0.8 * y_torus.max())
         ax.set_zlim3d(-3, 3)
-        ax.axis("off")
