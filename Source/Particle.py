@@ -294,23 +294,22 @@ class Particle:
             fig_dim = (1, 2)
             figsize = (14, 4)
 
-        fig, ax = plt.subplots(fig_dim[0], fig_dim[1], figsize=figsize)
-        fig.subplots_adjust(hspace=0.4)
-        fig.tight_layout()
+        fig, ax = plt.subplots(fig_dim[0], fig_dim[1], figsize=figsize, dpi=200)
+        fig.subplots_adjust(hspace=0.3)
 
         # Radial E field
         ax[0][0].plot(psi / self.psi_wall, Er, color="b", linewidth=3)
         ax[0][0].plot([1, 1], [Er.min(), Er.max()], color="r", linewidth=3)
         ax[0][0].set_xlabel("$\psi/\psi_{wall}$")
         ax[0][0].set_ylabel("$E_r$ [kV/m]")
-        ax[0][0].set_title("Radial electric field [kV/m]")
+        ax[0][0].set_title("Radial electric field [kV/m]", c="b")
 
         # Electric Potential
         ax[0][1].plot(psi / self.psi_wall, Phi, color="b", linewidth=3)
         ax[0][1].plot([1, 1], [Phi.min(), Phi.max()], color="r", linewidth=3)
         ax[0][1].set_xlabel("$\psi/\psi_{wall}$")
         ax[0][1].set_ylabel("$Φ_r$ [kV]")
-        ax[0][1].set_title("Electric Potential [kV]")
+        ax[0][1].set_title("Electric Potential [kV]", c="b")
 
         if zoom is not None:
             ax[0][0].set_xlim(zoom)
@@ -326,7 +325,7 @@ class Particle:
 
         ax[1][0].set_xlabel("$\psi/\psi_{wall}$")
         ax[1][0].set_ylabel("$q(\psi)$", rotation=0)
-        ax[1][0].set_title("$\\text{q factor }q(\psi)$")
+        ax[1][0].set_title("$\\text{q factor }q(\psi)$", c="b")
 
         # ψ_π(ψ)
         y2 = self.q.psip_from_psi(psi)
@@ -334,7 +333,7 @@ class Particle:
         ax[1][1].plot([1, 1], [y2.min(), y2.max()], color="r", linewidth=3)
         ax[1][1].set_xlabel("$\psi/\psi_{wall}$")
         ax[1][1].set_ylabel("$\psi_p(\psi)$", rotation=0)
-        ax[1][1].set_title("$\psi_p(\psi)$")
+        ax[1][1].set_title("$\psi_p(\psi)$", c="b")
 
     def plot_time_evolution(self, percentage=100):
         """
@@ -348,10 +347,10 @@ class Particle:
         points = int(np.floor(self.theta.shape[0] * percentage / 100) - 1)
 
         # Plotting
-        fig, ax = plt.subplots(7, 1, figsize=(10, 8), sharex=True)
+        fig, ax = plt.subplots(7, 1, figsize=(10, 8), sharex=True, dpi=300)
         fig.tight_layout()
-        ax[0].title.set_text("Time evolution of dynamical variables")
-        ax[5].title.set_text("Time evolution of canonical momenta")
+        ax[0].set_title("Time evolution of dynamical variables", c="b")
+        ax[5].set_title("Time evolution of canonical momenta", c="b")
 
         ax[0].scatter(self.tspan[:points], self.theta[:points], **self.Config.time_scatter_kw)
         ax[1].scatter(self.tspan[:points], self.z[:points], **self.Config.time_scatter_kw)
@@ -533,7 +532,7 @@ class Particle:
 
         plt.plot(x, y, **self.Config.orbit_point_kw)
         label = "  Particle " + f"({self.t_or_p[0]}-{self.l_or_c[0]})"
-        plt.annotate(label, (x, y))
+        plt.annotate(label, (x, y), color="b")
 
     def plot_torus2d(self, percentage=100):
         """Plots the poloidal and toroidal view of the orbit.
@@ -589,8 +588,8 @@ class Particle:
         ax[1].set_ylim(bottom=0)
         ax[0].grid(False)
         ax[1].grid(False)
-        ax[0].set_title("Toroidal View")
-        ax[1].set_title("Top-Down View")
+        ax[0].set_title("Toroidal View", c="b")
+        ax[1].set_title("Top-Down View", c="b")
         ax[0].set_xlabel("$\sqrt{2\psi} - \\theta$")
         ax[1].set_xlabel("$\sqrt{2\psi}\cos\\theta - \\zeta$")
         ax[0].tick_params(labelsize=8)

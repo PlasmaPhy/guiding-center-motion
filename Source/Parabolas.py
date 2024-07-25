@@ -111,8 +111,8 @@ class Orbit_parabolas:
         _, top = top_par.get_extremum()
         plt.gca().set_ylim(bottom=self.ylim[0], top=self.ylim[1])
         plt.ylabel("$\dfrac{\mu B_0}{E}\t$", rotation=0)
-        plt.title("Orbit types in the plane of $P_\zeta - \mu$ for fixed energy.")
-        plt.legend([f"Particle energy = {np.around(self.E,9)}"], loc="upper right")
+        plt.title("Orbit types in the plane of $P_\zeta - \mu$ for fixed energy.", c="b")
+        plt.legend([f"Particle energy = {np.around(self.E,9)}"], loc="upper right", labelcolor="b")
 
     def plot_tp_boundary(self):  # Ready to commit
         """Plots the Trapped-Passing Boundary."""
