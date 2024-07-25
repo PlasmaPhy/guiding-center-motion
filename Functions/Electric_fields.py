@@ -106,18 +106,18 @@ class Parabolic:
 
 class Radial:
     """Initializes an electric field of the form:
-    E(r) = -Ea*exp(-(r-r_a)^2 / r_w^2))
+    E(r) = -Ea_norm*exp(-(r-r_a)^2 / r_w^2))
 
-    Caution if you change Ea's field. You must adjust extremums()
+    Caution if you change Ea_norm's field. You must adjust extremums()
     accordingly.
     """
 
     def __init__(self, psi_wall, q, Ea=75):
-        self.Ea = Ea  # kV/m
+        self.Ea_norm = Ea * 0.0005685630111305195
         self.r0 = np.sqrt(2 * psi_wall)
-        self.ra = 0.9 * self.r0  # Defines the minimum point
+        self.ra = 0.98 * self.r0  # Defines the minimum point
         self.Efield_min = self.ra**2 / 2
-        self.rw = self.r0 / 20  # waist, not wall
+        self.rw = self.r0 / 50  # waist, not wall
         self.psia = self.ra**2 / 2
         self.psiw = self.rw**2 / 2  # waist, not wall
 
@@ -134,7 +134,7 @@ class Radial:
         # Derivatives of Φ(ψ) with respect to ψ_π, θ
         Phi_der_psip = (
             self.q.q_of_psi(psi)
-            * self.Ea
+            * self.Ea_norm
             / (np.sqrt(2 * psi))
             * np.exp(-((np.sqrt(psi) - self.sr_psia) ** 2) / self.psiw)
         )
@@ -144,7 +144,7 @@ class Radial:
 
     def Er_of_psi(self, psi):
         r = np.sqrt(2 * psi)
-        Er = -self.Ea * np.exp(-((r - self.ra) ** 2) / self.rw**2)
+        Er = -self.Ea_norm * np.exp(-((r - self.ra) ** 2) / self.rw**2)
         return Er
 
     def Phi_of_r(self, r):
@@ -154,7 +154,7 @@ class Radial:
 
     def Phi_of_psi(self, psi):
         Phi = (
-            self.Ea
+            self.Ea_norm
             * np.sqrt(np.pi * self.psiw / 2)
             * (erf((np.sqrt(psi) - self.sr_psia) / self.sr_psiw) + erf(self.sr_psia / self.sr_psiw))
         )

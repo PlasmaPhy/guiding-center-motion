@@ -41,9 +41,8 @@ class Orbit_parabolas:
         Bmax = B0 * (1 + np.sqrt(2 * self.psi_wall))  # "Bmax occurs at psip_wall, θ = π"
 
         # Electric Potential Components:
-        e_charge = cwp.charge
-        Phi0 = self.Efield.Phi_of_psi(0) * e_charge
-        Phi_wall = self.Efield.Phi_of_psi(self.psi_wall) * e_charge
+        Phi0 = self.Efield.Phi_of_psi(0)
+        Phi_wall = self.Efield.Phi_of_psi(self.psi_wall)
 
         # Parabolas constants [a, b, c]
         # __________________________________________________________

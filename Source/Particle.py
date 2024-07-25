@@ -246,6 +246,9 @@ class Particle:
         self.kV_to_keV = self.kV_to_eV / 1000
         self.kV_to_norm = self.kV_to_eV * self.eV_to_norm
 
+        self.Ea_conversion = e * R / self.E_unit
+        print(self.Ea_conversion)
+
     def calcW_grid(self, theta, psi, Pz, contour_Phi=True, units=True):
         """Returns a single value or a grid of the calculated Hamiltonian.
 
@@ -284,8 +287,8 @@ class Particle:
         """
 
         psi = np.linspace(0, 1.1 * self.psi_wall, 1000)
-        Er = self.Efield.Er_of_psi(psi)
-        Phi = self.Efield.Phi_of_psi(psi)
+        Er = self.Efield.Er_of_psi(psi) / self.Ea_conversion
+        Phi = self.Efield.Phi_of_psi(psi) / self.Ea_conversion
 
         if q_plot:
             fig_dim = (2, 2)
