@@ -30,11 +30,11 @@ class Orbit_parabolas:
         self.Config = utils.ConfigFile()
 
         self.q = cwp.q
-        self.E = cwp.E_eV
+        self.E = cwp.E
         self.i, self.g, self.delta = cwp.B
         self.Efield = cwp.Efield
         self.psi_wall = cwp.psi_wall
-        self.psip_wall = self.q.psip_from_psi(cwp.psi_wall)
+        self.psip_wall = self.q.psip_of_psi(cwp.psi_wall)
         # self.psi_wall = self.psip_wall  #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         B0 = 1  # cwp.B0
         Bmin = B0 * (1 - np.sqrt(2 * self.psi_wall))  # "Bmin occurs at psip_wall, θ = 0"

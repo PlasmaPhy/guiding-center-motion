@@ -6,6 +6,8 @@ orbit type, and can draw several different plots
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import odeint
+from math import sqrt, sin, cos
+from matplotlib.patches import Rectangle
 import Source.utils as utils
 import Source.Parabolas as Parabolas
 
@@ -51,31 +53,32 @@ class Particle:
         self.elementary_charge = self.Config.constants["elementary_charge"]
         self.Z = self.Config.constants[self.species + "_Z"]
 
+        self.mu = mu
         self.theta0 = init_cond[0]
         self.psi0 = init_cond[1]
         self.z0 = init_cond[2]
         self.Pz0 = init_cond[3]
-        self.psip0 = q.psip_from_psi(self.psi0)
+        self.psip0 = q.psip_of_psi(self.psi0)
         self.rho0 = self.Pz0 + self.psip0  # Pz0 + psip0
         init_cond.insert(2, self.psip0)
         init_cond.insert(5, self.rho0)
-        self.init_cond = np.array(init_cond)  # contains all 5
+        self.init_cond = init_cond  # contains all 5
         self.tspan = tspan
 
-        self.mu = mu
         self.q = q
         self.B = B
         self.I, self.g, self.B0 = self.B  # Β0 in Gauss
         self.Efield = Efield
         self.psi_wall = psi_wall
-        self.psip_wall = self.q.psip_from_psi(self.psi_wall)
-        self.r0 = np.sqrt(2 * self.psi0)
-        self.r_wall = np.sqrt(2 * psi_wall)
+        self.psip_wall = self.q.psip_of_psi(self.psi_wall)
+        self.r0 = sqrt(2 * self.psi0)
+        self.r_wall = sqrt(2 * psi_wall)
 
         self.R = 1  # meters
-        self.Baxis = 1
-        self.B_init = 1 - self.r0 * np.cos(self.theta0)
-        self.Phi_init = self.Efield.Phi_of_psi(self.psi0)
+        self.Baxis_NU = 1
+
+        self.B_init = 1 - self.r0 * cos(self.theta0)
+        self.Phi_init = float(self.Efield.Phi_of_psi(self.psi0))
 
         # psi_p > 0.5 warning
         if self.psip_wall >= 0.5:
@@ -83,6 +86,10 @@ class Particle:
                 f"WARNING: psip_wall = {self.psip_wall} >= 0,5."
                 + "Parabolas and other stuff will probably not work"
             )
+
+        # Calculate conversion factors and certain quantities
+        self.conversion_factors()
+        self.Phi_init_NU = self.Phi_init * self.Volts_to_NU
 
         # Logic variables
         self.calculated_orbit = False
@@ -94,7 +101,7 @@ class Particle:
         print(self.__str__())
 
     def __str__(self):
-        # grab orbit_type() results
+        # print orbit_type() results
         return self.orbit_type_str
 
     def orbit(self):
@@ -111,16 +118,19 @@ class Particle:
             return
 
         def dSdt(t, S, mu=None):
-            """Sets the diff equations system to pass to scipy"""
+            """Sets the diff equations system to pass to scipy.
+
+            All values are in normalized units.
+            """
 
             theta, psi, psip, z, rho = S
 
             # Intermediate values
-            phi_der_psip, phi_der_theta = self.Efield.Phi_der_of_psi(psi)
+            phi_der_psip, phi_der_theta = self.Efield.Phi_der(psi) * self.Volts_to_NU
             q_value = self.q.q_of_psi(psi)
-            sin_theta = np.sin(theta)
-            cos_theta = np.cos(theta)
-            r = np.sqrt(2 * psi)
+            sin_theta = sin(theta)
+            cos_theta = cos(theta)
+            r = sqrt(2 * psi)
             B = 1 - r * cos_theta  # B0?
             par = self.mu + rho**2 * B
             bracket1 = -par * q_value * cos_theta / r + phi_der_psip
@@ -129,19 +139,20 @@ class Particle:
 
             # Canonical Equations
             theta_dot = 1 / D * rho * B**2 + self.g / D * bracket1
-            psi_dot = -self.g / D * bracket2 * self.q.q_of_psi(psi)
-            psip_dot = psi_dot / self.q.q_of_psi(psi)
-            rho_dot = psi_dot / (self.g * self.q.q_of_psi(psi))
+            psi_dot = -self.g / D * bracket2 * q_value
+            psip_dot = psi_dot / q_value
+            rho_dot = psi_dot / (self.g * q_value)
             z_dot = rho * B**2 / D - self.I / D * bracket1
 
-            return np.array([theta_dot, psi_dot, psip_dot, z_dot, rho_dot])
+            return [theta_dot, psi_dot, psip_dot, z_dot, rho_dot]
 
-        sol_init = np.delete(self.init_cond, 4)  # Drop Pz0
+        sol_init = self.init_cond
+        del sol_init[4]  # Drop Pz0
         self.sol = odeint(dSdt, y0=sol_init, t=self.tspan, tfirst=True)
 
         self.theta = self.sol.T[0]
         self.psi = self.sol.T[1]
-        self.psip = self.q.psip_from_psi(self.psi)
+        self.psip = self.q.psip_of_psi(self.psi)
         self.z = self.sol.T[3]
         self.rho = self.sol.T[4]
 
@@ -166,30 +177,23 @@ class Particle:
 
         """
 
-        # Calculate conversion factors
-        self.conversion_factors()
-
         # Constants of Motion: Particle energy and Pz
-        self.E = (  # Energy from initial conditions
+        self.E = (  # Normalized Energy from initial conditions
             (self.Pz0 + self.psip0) ** 2 * self.B_init**2 / (2 * self.g**2)
             + self.mu * self.B_init
-            + self.Phi_init
+            + self.Phi_init_NU
         )
-        self.E_Joule = self.norm_to_J * self.E  # Energy in Joules
-        self.E_eV = self.J_to_eV * self.E_Joule  # Energy in eV
 
-        self.gyro_radius = np.abs(
-            np.sqrt(self.mass_kg * self.E_Joule) / (self.B0 * self.Z)
-        )  # ρ in m
+        self.E_eV = self.E * self.NU_to_eV
 
         # Calculate Bmin and Bmax. In LAR, B decreases outwards.
-        self.Bmin = 1 - np.sqrt(2 * self.psi_wall)  # "Bmin occurs at psi_wall, θ = 0"
-        self.Bmax = 1 + np.sqrt(2 * self.psi_wall)  # "Bmax occurs at psi_wall, θ = π"
+        self.Bmin_NU = 1 - sqrt(2 * self.psi_wall)  # "Bmin occurs at psi_wall, θ = 0"
+        self.Bmax_NU = 1 + sqrt(2 * self.psi_wall)  # "Bmax occurs at psi_wall, θ = π"
 
         # Find if trapped or passing from rho (White page 83)
-        rho_min = np.sqrt(2 * self.E - 2 * self.mu * self.Bmin) / self.Bmin
-        rho_max = np.sqrt(2 * self.E - 2 * self.mu * self.Bmax) / self.Bmax
-        if rho_min * rho_max < 0:
+        sqrt1 = 2 * self.E - 2 * self.mu * self.Bmin_NU
+        sqrt2 = 2 * self.E - 2 * self.mu * self.Bmax_NU
+        if sqrt1 * sqrt2 < 0:
             self.t_or_p = "Trapped"
         else:
             self.t_or_p = "Passing"
@@ -212,42 +216,33 @@ class Particle:
         # String to return to __str__()
         self.orbit_type_str = (
             "Constants of motion:\n"
-            + "\tParticle Energy (normalized):\tE = {:e}\n".format(self.E)
-            + "\tParticle Energy (keV):\t\tE = {:e} eV\n".format(self.E_eV)
+            + "\tParticle Energy (normalized):\tE  = {:e}\n".format(self.E)
+            + "\tParticle Energy (eV):\t\tE  = {:e} eV\n".format(self.E_eV)
             + f"\tToroidal Momenta:\t\tPζ = {self.Pz0}\n\n"
             + "Other Quantities:\n"
             + f'\tParticle of Species:\t\t"{self.species}"\n'
             + f"\tOrbit Type:\t\t\t{self.t_or_p} - {self.l_or_c}\n"
             + f"\tMajor Radius:\t\t\tR = {self.R} meters\n"
             + "\tTime unit:\t\t\tω = {:e} Hz \n".format(self.w0)
-            + "\tGyro radius: \t\t\tρ = {:e} cm \n".format(self.gyro_radius * 100)
+            # + "\tGyro radius: \t\t\tρ = {:e} cm \n".format(self.gyro_radius * 100)
         )
 
         if info:
             return self.orbit_type_str
 
     def conversion_factors(self):  # BETA
-        e = self.charge  # 1.6*10**(-19)C
-        m_kg = self.mass_kg
-        B = self.B0  # Gauss
-        R = self.R  # meters
+        # e = self.charge  # 1.6*10**(-19)C
+        # m = self.mass_amu
+        # B = self.B0  # Tesla
+        # R = self.R  # meters
 
-        self.w0 = np.abs(e) * 10 ** (-4) * B / (m_kg)  # s^-1
-        self.E_unit = m_kg * self.w0**2 * R**2  # Multiply normalised energy to get J
+        self.w0 = 1
+        self.E_unit = 1
 
         # Conversion Factors
-        self.norm_to_J = self.E_unit
-        self.J_to_eV = 1 / self.elementary_charge
-        self.norm_to_eV = self.norm_to_J * self.J_to_eV
-        self.eV_to_norm = 1 / self.norm_to_eV
-        self.kV_to_V = 1000
-        self.V_to_eV = self.elementary_charge
-        self.kV_to_eV = self.kV_to_V * self.V_to_eV
-        self.kV_to_keV = self.kV_to_eV / 1000
-        self.kV_to_norm = self.kV_to_eV * self.eV_to_norm
-
-        self.Ea_conversion = e * R / self.E_unit
-        print(self.Ea_conversion)
+        self.Volts_to_NU = 1
+        self.NU_to_eV = 1
+        self.NU_to_keV = 1
 
     def calcW_grid(self, theta, psi, Pz, contour_Phi=True, units=True):
         """Returns a single value or a grid of the calculated Hamiltonian.
@@ -258,22 +253,20 @@ class Particle:
 
         r = np.sqrt(2 * psi)
         B = 1 - r * np.cos(theta)
-        psip = self.q.psip_from_psi(psi)
+        psip = self.q.psip_of_psi(psi)
 
-        W_magnetic = (Pz + psip) ** 2 * B**2 / (2 * self.g**2) + self.mu * B
+        W = (Pz + psip) ** 2 * B**2 / (2 * self.g**2) + self.mu * B  # Without Φ
 
+        # Add Φ if asked
         if contour_Phi:
             Phi = self.Efield.Phi_of_psi(psi)
-            # Phi *= self.kV_to_norm
-        else:
-            Phi = 0 * theta  # Grid of zeros
-
-        W = W_magnetic + Phi  # all normalized
+            Phi *= self.Volts_to_NU
+            W += Phi  # all normalized
 
         if units == "eV":
-            W *= self.norm_to_eV
+            W *= self.NU_to_eV
         elif units == "keV":
-            W *= self.norm_to_eV / 1000
+            W *= self.NU_to_eV / 1000
 
         return W
 
@@ -287,8 +280,17 @@ class Particle:
         """
 
         psi = np.linspace(0, 1.1 * self.psi_wall, 1000)
-        Er = self.Efield.Er_of_psi(psi) / self.Ea_conversion
-        Phi = self.Efield.Phi_of_psi(psi) / self.Ea_conversion
+        Er = self.Efield.Er_of_psi(psi)
+        Phi = self.Efield.Phi_of_psi(psi)
+
+        if Er.max() > 1000:  # If in kV
+            Er /= 1000
+            Phi /= 1000
+            E_ylabel = "$E_r$ [kV/m]"
+            Phi_ylabel = "$Φ_r$ [kV]"
+        else:  # If in V
+            E_ylabel = "$E_r$ [V/m]"
+            Phi_ylabel = "$Φ_r$ [V]"
 
         if q_plot:
             fig_dim = (2, 2)
@@ -304,14 +306,14 @@ class Particle:
         ax[0][0].plot(psi / self.psi_wall, Er, color="b", linewidth=3)
         ax[0][0].plot([1, 1], [Er.min(), Er.max()], color="r", linewidth=3)
         ax[0][0].set_xlabel("$\psi/\psi_{wall}$")
-        ax[0][0].set_ylabel("$E_r$ [kV/m]")
+        ax[0][0].set_ylabel(E_ylabel)
         ax[0][0].set_title("Radial electric field [kV/m]", c="b")
 
         # Electric Potential
         ax[0][1].plot(psi / self.psi_wall, Phi, color="b", linewidth=3)
         ax[0][1].plot([1, 1], [Phi.min(), Phi.max()], color="r", linewidth=3)
         ax[0][1].set_xlabel("$\psi/\psi_{wall}$")
-        ax[0][1].set_ylabel("$Φ_r$ [kV]")
+        ax[0][1].set_ylabel(Phi_ylabel)
         ax[0][1].set_title("Electric Potential [kV]", c="b")
 
         if zoom is not None:
@@ -323,6 +325,8 @@ class Particle:
 
         # q(ψ)
         y1 = self.q.q_of_psi(psi)
+        if type(y1) is int:  # if q = Unity
+            y1 *= np.ones(psi.shape)
         ax[1][0].plot(psi / self.psi_wall, y1, color="b", linewidth=3)
         ax[1][0].plot([1, 1], [y1.min(), y1.max()], color="r", linewidth=3)
 
@@ -331,7 +335,7 @@ class Particle:
         ax[1][0].set_title("$\\text{q factor }q(\psi)$", c="b")
 
         # ψ_π(ψ)
-        y2 = self.q.psip_from_psi(psi)
+        y2 = self.q.psip_of_psi(psi)
         ax[1][1].plot(psi / self.psi_wall, y2, color="b", linewidth=3)
         ax[1][1].plot([1, 1], [y2.min(), y2.max()], color="r", linewidth=3)
         ax[1][1].set_xlabel("$\psi/\psi_{wall}$")
@@ -437,16 +441,16 @@ class Particle:
         contour_Phi=True,
         units="keV",
         levels=None,
+        shade=True,
     ):
         """Draws a 2D contour plot of the Hamiltonian
 
         Can also plot the current particle's θ-Pθ drift. Should be False when
         running with multiple initial conditions.
         Args:
-            scatter (bool, optional): Plot drift plot on top. Defaults to True.
-            theta_lim (str/list, optional): "auto" uses the same limits from the
-                    previous drift plots. Defaults to "auto".
-            psi_lim (str/list, optional): same as theta_lim. Defaults to "auto".
+            theta_lim (list): Plot xlim. Must be either [0,2π] or [-π,π]/
+            psi_lim (str/list, optional): If a list is passed, it plots between the
+                    2 values relative to ψ_wall. Defaults to "auto".
             plot_drift (bool, optional): Whether or not to plot θ=Ρθ drift on top.
             contour_Phi (bool, optional): Whether or not to add the Φ term in the
                     energy contour.
@@ -454,6 +458,7 @@ class Particle:
                     be either "normal", "eV", or "keV".
             levels (int, optional): The number of contour levels. Defaults to
                     Config setting.
+            shade (bool, optional): Whether to shade the region ψ/ψ_wall > 1.
         """
 
         fig = plt.figure(figsize=(6, 4))
@@ -526,6 +531,10 @@ class Particle:
         cbar = fig.colorbar(C, ax=ax, fraction=0.03, pad=0.2, label=label)
         # Draw a small dash over the colorbar indicating the particle's energy level
         cbar.ax.plot([0, 1], [E_label, E_label], linestyle="-", c="r", zorder=3)
+
+        if shade:
+            rect = Rectangle((theta_lim[0], 1), 2 * np.pi, psi_max, alpha=0.2, color="k")
+            ax.add_patch(rect)
 
     def plot_orbit_type_point(self):  # Needs checking
         """Plots the particle point on the μ-Pz (normalized) plane."""
