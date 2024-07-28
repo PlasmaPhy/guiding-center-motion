@@ -413,7 +413,7 @@ class Particle:
         plt.xticks(np.linspace(-2 * np.pi, 2 * np.pi, 9), ticks)
         plt.xlim(theta_lim)
 
-    def plot_Ptheta_drift(self, theta_lim):
+    def plot_Ptheta_drift(self, theta_lim, ax):
         """Draws θ - P_θ plot.
 
         Args:
@@ -424,14 +424,16 @@ class Particle:
         theta_min, theta_max = theta_lim
         self.theta_plot = utils.theta_plot(self.theta, theta_lim)
 
-        plt.scatter(self.theta_plot, self.Ptheta, **self.Config.drift_scatter_kw, zorder=1)
-        plt.set_xlabel("$\\theta$", **self.Config.drift_xlabel_kw)
-        plt.set_ylabel("$P_\\theta$", **self.Config.drift_ylabel_kw)
+        ax.scatter(
+            self.theta_plot, self.Ptheta / self.psi_wall, **self.Config.drift_scatter_kw, zorder=2
+        )
+        ax.set_xlabel("$\\theta$", **self.Config.drift_xlabel_kw)
+        ax.set_ylabel("$P_\\theta$", **self.Config.drift_ylabel_kw)
 
         # Set all xticks as multiples of π, and then re-set xlims (smart!)
         ticks = ["-2π", "-3π/2", "-π", "-π/2", "0", "π/2", "π", "3π/2", "2π"]
-        plt.xticks(np.linspace(-2 * np.pi, 2 * np.pi, 9), ticks)
-        plt.xlim(theta_lim)
+        ax.set_xticks(np.linspace(-2 * np.pi, 2 * np.pi, 9), ticks)
+        ax.set_xlim(theta_lim)
 
     def contour_energy(
         self,
@@ -490,13 +492,14 @@ class Particle:
             return
 
         # Set psi limits (Normalised to psi_wall)
-        if psi_lim == "auto":
-            psi_diff = self.psi.max() - self.psi.min()
-            psi_mid = (self.psi.max() + self.psi.min()) / 2
-            psi_lower = max(0, psi_mid - 0.6 * psi_diff)
-            psi_higher = psi_mid + 0.6 * psi_diff
-            psi_lim = np.array([psi_lower, psi_higher])
-            psi_lim /= self.psi_wall
+        if type(psi_lim) is str:
+            if psi_lim == "auto":
+                psi_diff = self.psi.max() - self.psi.min()
+                psi_mid = (self.psi.max() + self.psi.min()) / 2
+                psi_lower = max(0, psi_mid - 0.6 * psi_diff)
+                psi_higher = psi_mid + 0.6 * psi_diff
+                psi_lim = np.array([psi_lower, psi_higher])
+                psi_lim /= self.psi_wall
         psi_min = psi_lim[0]
         psi_max = psi_lim[1]
 
