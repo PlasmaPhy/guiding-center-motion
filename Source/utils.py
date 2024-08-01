@@ -20,8 +20,11 @@ class ConfigFile:
             "e_mass_amu": self.config["e_mass_amu"],
             "e_mass_keV": self.config["e_mass_keV"],
             "e_mass_kg": self.config["e_mass_kg"],
-            "e_charge": self.config["e_charge"],
             "e_Z": self.config["e_Z"],
+            "p_mass_amu": self.config["p_mass_amu"],
+            "p_mass_keV": self.config["p_mass_keV"],
+            "p_mass_kg": self.config["p_mass_kg"],
+            "p_Z": self.config["p_Z"],
         }
 
         # Time plots

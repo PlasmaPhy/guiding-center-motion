@@ -63,6 +63,7 @@ class Particles:
         # Iteration through params list
         for param in self.params:
             psi_wall = param["psi_wall"]
+            R = param["R"]
             q = param["q"]
             B = param["B"]
             Efield = param["Efield"]
@@ -81,7 +82,7 @@ class Particles:
 
                 # Create and store each particle based on their initial conditions
                 particle = Particle.Particle(
-                    species[i], init_cond, mu[i], tspan[i], q[i], B[i], Efield[i], psi_wall[i]
+                    species[i], init_cond, mu[i], tspan[i], q[i], R[i], B[i], Efield[i], psi_wall[i]
                 )
                 self.particles.append(particle)
 

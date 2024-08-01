@@ -1,6 +1,7 @@
 n: 3
 
 psi_wall: [0.12, 0.12, 0.12]
+R: [6.2, 6.2, 6.2]
 q: ["Qfactors.Unity()"]
 B: [[0, 1, 1], [0, 1, 1], [0, 1, 1]]
 Efield: ["Electric_fields.Nofield()"]

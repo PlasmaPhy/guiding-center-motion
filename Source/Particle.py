@@ -19,7 +19,7 @@ class Particle:
     should be changed in the ./Functions folder.
     """
 
-    def __init__(self, species, init_cond, mu, tspan, q, B, Efield, psi_wall):
+    def __init__(self, species, init_cond, mu, tspan, q, R, B, Efield, psi_wall):
         """Initializes particle and grabs configuration.
 
         Args:
@@ -31,6 +31,7 @@ class Particle:
             tspan (np.array): The ODE interval, in [t0, tf, steps]
             q (object): Qfactor object that supports query methods for getting values
                                 of ψ(ψ_p), ψ_p(ψ), q(ψ) and q(ψ_p)
+            R (float): The tokamak's major radius in [m]
             B (list, optional): The 3 componets of the contravariant representation
                                 of the magnetic field B. Defaults to [0, 1, 0].
             E (object): Electric Field Object that supports query methods for getting
@@ -49,7 +50,7 @@ class Particle:
         self.mass_amu = self.Config.constants[self.species + "_mass_amu"]
         self.mass_keV = self.Config.constants[self.species + "_mass_keV"]
         self.mass_kg = self.Config.constants[self.species + "_mass_kg"]
-        self.charge = self.Config.constants[self.species + "_charge"]
+        self.e = self.Config.constants["elementary_charge"]
         self.elementary_charge = self.Config.constants["elementary_charge"]
         self.Z = self.Config.constants[self.species + "_Z"]
 
@@ -66,6 +67,7 @@ class Particle:
         self.tspan = tspan
 
         self.q = q
+        self.R = R  # meters
         self.B = B
         self.I, self.g, self.B0 = self.B  # Β0 in Gauss
         self.Efield = Efield
@@ -74,10 +76,8 @@ class Particle:
         self.r0 = sqrt(2 * self.psi0)
         self.r_wall = sqrt(2 * psi_wall)
 
-        self.R = 1  # meters
         self.Baxis_NU = 1
-
-        self.B_init = 1 - self.r0 * cos(self.theta0)
+        self.B_init_NU = 1 - self.r0 * cos(self.theta0)
         self.Phi_init = float(self.Efield.Phi_of_psi(self.psi0))
 
         # psi_p > 0.5 warning
@@ -126,7 +126,9 @@ class Particle:
             theta, psi, psip, z, rho = S
 
             # Intermediate values
-            phi_der_psip, phi_der_theta = self.Efield.Phi_der(psi) * self.Volts_to_NU
+            phi_der_psip, phi_der_theta = self.Efield.Phi_der(psi)
+            phi_der_psip *= self.Volts_to_NU
+            phi_der_theta *= self.Volts_to_NU
             q_value = self.q.q_of_psi(psi)
             sin_theta = sin(theta)
             cos_theta = cos(theta)
@@ -179,12 +181,13 @@ class Particle:
 
         # Constants of Motion: Particle energy and Pz
         self.E = (  # Normalized Energy from initial conditions
-            (self.Pz0 + self.psip0) ** 2 * self.B_init**2 / (2 * self.g**2)
-            + self.mu * self.B_init
+            (self.Pz0 + self.psip0) ** 2 * self.B_init_NU**2 / (2 * self.g**2)
+            + self.mu * self.B_init_NU
             + self.Phi_init_NU
         )
 
         self.E_eV = self.E * self.NU_to_eV
+        self.E_J = self.E * self.NU_to_J
 
         # Calculate Bmin and Bmax. In LAR, B decreases outwards.
         self.Bmin_NU = 1 - sqrt(2 * self.psi_wall)  # "Bmin occurs at psi_wall, θ = 0"
@@ -218,12 +221,14 @@ class Particle:
             "Constants of motion:\n"
             + "\tParticle Energy (normalized):\tE  = {:e}\n".format(self.E)
             + "\tParticle Energy (eV):\t\tE  = {:e} eV\n".format(self.E_eV)
+            + "\tParticle Energy (J):\t\tE  = {:e} J\n".format(self.E_J)
             + f"\tToroidal Momenta:\t\tPζ = {self.Pz0}\n\n"
             + "Other Quantities:\n"
             + f'\tParticle of Species:\t\t"{self.species}"\n'
             + f"\tOrbit Type:\t\t\t{self.t_or_p} - {self.l_or_c}\n"
             + f"\tMajor Radius:\t\t\tR = {self.R} meters\n"
             + "\tTime unit:\t\t\tω = {:e} Hz \n".format(self.w0)
+            + "\tEnergy unit:\t\t\tE = {:e} J \n".format(self.E_unit)
             # + "\tGyro radius: \t\t\tρ = {:e} cm \n".format(self.gyro_radius * 100)
         )
 
@@ -231,18 +236,18 @@ class Particle:
             return self.orbit_type_str
 
     def conversion_factors(self):  # BETA
-        # e = self.charge  # 1.6*10**(-19)C
-        # m = self.mass_amu
-        # B = self.B0  # Tesla
-        # R = self.R  # meters
+        e = self.e  # 1.6*10**(-19)C
+        m = self.mass_kg
+        B = self.B0  # Tesla
+        R = self.R  # meters
 
-        self.w0 = 1
-        self.E_unit = 1
+        self.w0 = e * B / m  # [s^-1]
+        self.E_unit = m * self.w0**2 * R**2  # [J]
 
         # Conversion Factors
-        self.Volts_to_NU = 1
-        self.NU_to_eV = 1
-        self.NU_to_keV = 1
+        self.NU_to_eV = 1 / self.E_unit  # ΣΩΣΤΟ
+        self.NU_to_J = e / self.E_unit  # ΣΩΣΤΟ
+        self.Volts_to_NU = self.E_unit  #
 
     def calcW_grid(self, theta, psi, Pz, contour_Phi=True, units=True):
         """Returns a single value or a grid of the calculated Hamiltonian.
@@ -283,7 +288,7 @@ class Particle:
         Er = self.Efield.Er_of_psi(psi)
         Phi = self.Efield.Phi_of_psi(psi)
 
-        if Er.max() > 1000:  # If in kV
+        if np.abs(Er).max() > 1000:  # If in kV
             Er /= 1000
             Phi /= 1000
             E_ylabel = "$E_r$ [kV/m]"
@@ -443,7 +448,7 @@ class Particle:
         contour_Phi=True,
         units="keV",
         levels=None,
-        shade=True,
+        wall_shade=True,
     ):
         """Draws a 2D contour plot of the Hamiltonian
 
@@ -460,7 +465,7 @@ class Particle:
                     be either "normal", "eV", or "keV".
             levels (int, optional): The number of contour levels. Defaults to
                     Config setting.
-            shade (bool, optional): Whether to shade the region ψ/ψ_wall > 1.
+            wall_shade (bool, optional): Whether to shade the region ψ/ψ_wall > 1.
         """
 
         fig = plt.figure(figsize=(6, 4))
@@ -499,7 +504,8 @@ class Particle:
                 psi_lower = max(0, psi_mid - 0.6 * psi_diff)
                 psi_higher = psi_mid + 0.6 * psi_diff
                 psi_lim = np.array([psi_lower, psi_higher])
-                psi_lim /= self.psi_wall
+        else:
+            psi_lim = np.array(psi_lim) * self.psi_wall
         psi_min = psi_lim[0]
         psi_max = psi_lim[1]
 
@@ -507,7 +513,7 @@ class Particle:
         grid_density = self.Config.contour_grid_density
         theta, psi = np.meshgrid(
             np.linspace(self.theta_min, self.theta_max, grid_density),
-            np.linspace(psi_min * self.psi_wall, psi_max * self.psi_wall, grid_density),
+            np.linspace(psi_min, psi_max, grid_density),
         )
         values = self.calcW_grid(theta, psi, self.Pz0, contour_Phi, units)
         span = np.array([values.min(), values.max()])
@@ -529,51 +535,61 @@ class Particle:
         ax.set_ylabel("$\\psi/\\psi_{wall}\t$", rotation=90)
         ticks = ["-2π", "-3π/2", "-π", "-π/2", "0", "π/2", "π", "3π/2", "2π"]
         plt.xticks(np.linspace(-2 * np.pi, 2 * np.pi, 9), ticks)
-        ax.set(xlim=[self.theta_min, self.theta_max], ylim=psi_lim)
+        ax.set(xlim=[self.theta_min, self.theta_max], ylim=np.array(psi_lim) / self.psi_wall)
         ax.set_facecolor("white")
         cbar = fig.colorbar(C, ax=ax, fraction=0.03, pad=0.2, label=label)
         # Draw a small dash over the colorbar indicating the particle's energy level
         cbar.ax.plot([0, 1], [E_label, E_label], linestyle="-", c="r", zorder=3)
 
-        if shade:
-            rect = Rectangle((theta_lim[0], 1), 2 * np.pi, psi_max, alpha=0.2, color="k")
+        if wall_shade:  # ψ_wall boundary rectangle
+            rect = Rectangle(
+                (theta_lim[0], 1), 2 * np.pi, psi_max / self.psi_wall, alpha=0.2, color="k"
+            )
             ax.add_patch(rect)
 
     def plot_orbit_type_point(self):  # Needs checking
         """Plots the particle point on the μ-Pz (normalized) plane."""
 
         x = self.Pz0 / self.psip_wall
-        y = self.mu * self.B0 / self.E_eV
-
+        y = self.mu * self.B0 / self.E
+        print(x, y)
         plt.plot(x, y, **self.Config.orbit_point_kw)
         label = "  Particle " + f"({self.t_or_p[0]}-{self.l_or_c[0]})"
         plt.annotate(label, (x, y), color="b")
 
-    def plot_torus2d(self, percentage=100):
+    def plot_torus2d(self, percentage=100, truescale=False):
         """Plots the poloidal and toroidal view of the orbit.
 
         Args:
             percentage (int): 0-100: the percentage of the orbit to be plotted
+            truescale (bool): Whether or not to construct the torus and orbit with the
+                    actual units of R and r.
         """
 
         points = int(np.floor(self.theta.shape[0] * percentage / 100) - 1)
-        self.theta_torus_plot = self.theta[:points]
-        self.psi_torus_plot = self.psi[:points]
-        self.z_torus_plot = self.z[:points]
+        theta_plot = self.theta[:points]
+        psi_plot = self.psi[:points]
+        z_plot = self.z[:points]
 
         # Torus shape parameters
         self.r_span = [
-            np.sqrt(2 * self.psi_torus_plot.min()),
-            np.sqrt(2 * self.psi_torus_plot.max()),
+            np.sqrt(2 * psi_plot.min()),
+            np.sqrt(2 * psi_plot.max()),
         ]
-        self.R = 2 * (self.r_span[1] + self.r_span[0]) / 2
-        # rtorus = self.Rout - self.R
+        self.Rfake = 2 * (self.r_span[1] + self.r_span[0]) / 2
 
-        self.Rin = self.R - self.r_span[0]
-        self.Rout = self.R + self.r_span[1]
+        if truescale:
+            Rtorus = self.R
+            rtorus = self.r_wall
+        else:
+            Rtorus = self.Rfake
+            rtorus = 1.1 * np.sqrt(2 * psi_plot.max())
 
-        r_plot1 = np.sqrt(2 * self.psi_torus_plot)
-        r_plot2 = self.R + np.sqrt(2 * self.psi_torus_plot) * np.cos(self.theta_torus_plot)
+        self.Rin = Rtorus - self.r_span[0]
+        self.Rout = Rtorus + self.r_span[1]
+
+        r_plot1 = np.sqrt(2 * psi_plot)
+        r_plot2 = Rtorus + np.sqrt(2 * psi_plot) * np.cos(theta_plot)
 
         fig, ax = plt.subplots(1, 2, figsize=(8, 5), subplot_kw={"projection": "polar"})
         fig.tight_layout()
@@ -596,8 +612,8 @@ class Particle:
         )
 
         # Orbits
-        ax[0].scatter(self.theta_torus_plot, r_plot1, **self.Config.torus2d_orbit_kw, zorder=-1)
-        ax[1].scatter(self.z_torus_plot, r_plot2, **self.Config.torus2d_orbit_kw, zorder=-1)
+        ax[0].scatter(theta_plot, r_plot1, **self.Config.torus2d_orbit_kw, zorder=-1)
+        ax[1].scatter(z_plot, r_plot2, **self.Config.torus2d_orbit_kw, zorder=-1)
 
         ax[0].set_ylim(bottom=0)
         ax[1].set_ylim(bottom=0)
@@ -610,21 +626,29 @@ class Particle:
         ax[0].tick_params(labelsize=8)
         ax[1].tick_params(labelsize=8)
 
-    def plot_torus3d(self, percentage=100, hd=True, bold=False, white_background=True):
+    def plot_torus3d(self, percentage=100, truescale=False, hd=True, bold=1, white_background=True):
         """Creates a 3d transparent torus and a part of the particle's orbit
 
         Args:
             percentage (int): 0-100: the percentage of the orbit to be plotted
-        hd (bool):
-            High definition image
+            truescale (bool): Whether or not to construct the torus and orbit with the
+                    actual units of R and r.
+            hd (bool): High definition image
+            bold (int): The "boldness" level. Takes values between 1-3
+            white_background (bool): Whether to paint the background white or not.
+                    Overwrites the default plt.style()
         """
         points = int(np.floor(self.theta.shape[0] * percentage / 100) - 1)
         psi_plot = self.psi[:points]
         theta_plot = self.theta[:points]
         z_plot = self.z[:points]
 
-        Rtorus = self.R
-        rtorus = 1.1 * np.sqrt(2 * psi_plot.max())
+        if truescale:
+            Rtorus = self.R
+            rtorus = self.r_wall
+        else:
+            Rtorus = self.Rfake
+            rtorus = 1.1 * np.sqrt(2 * psi_plot.max())
 
         # Cartesian
         x = (Rtorus + np.sqrt(2 * psi_plot) * np.cos(theta_plot)) * np.cos(z_plot)
@@ -667,7 +691,11 @@ class Particle:
         )
 
         custom_kw = self.Config.torus3d_orbit_kw.copy()
-        if bold:
+
+        if bold == 2:
+            custom_kw["alpha"] = 0.8
+            custom_kw["linewidth"] *= 2
+        elif bold == 3:
             custom_kw["alpha"] = 1
             custom_kw["linewidth"] *= 3
 
@@ -675,7 +703,6 @@ class Particle:
             ax.set_facecolor("white")
 
         ax.plot(x, y, z, **custom_kw, zorder=1)
-        # ax.set_zlim([-8, 8])
         ax.set_box_aspect((1, 1, 0.5), zoom=1.1)
         ax.set_xlim3d(0.8 * x_torus.min(), 0.8 * x_torus.max())
         ax.set_ylim3d(0.8 * y_torus.min(), 0.8 * y_torus.max())

@@ -31,37 +31,42 @@ class Orbit_parabolas:
 
         self.q = cwp.q
         self.E = cwp.E
-        self.i, self.g, self.delta = cwp.B
+        self.i, self.g, self.B0 = cwp.B
         self.Efield = cwp.Efield
         self.psi_wall = cwp.psi_wall
         self.psip_wall = self.q.psip_of_psi(cwp.psi_wall)
-        # self.psi_wall = self.psip_wall  #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        B0 = 1  # cwp.B0
-        Bmin = B0 * (1 - np.sqrt(2 * self.psi_wall))  # "Bmin occurs at psip_wall, θ = 0"
-        Bmax = B0 * (1 + np.sqrt(2 * self.psi_wall))  # "Bmax occurs at psip_wall, θ = π"
+        self.Volts_to_NU = cwp.Volts_to_NU
+
+        B0_NU = 1  # cwp.B0_NU
+        Bmin = B0_NU * (1 - np.sqrt(2 * self.psi_wall))  # "Bmin occurs at psip_wall, θ = 0"
+        Bmax = B0_NU * (1 + np.sqrt(2 * self.psi_wall))  # "Bmax occurs at psip_wall, θ = π"
 
         # Electric Potential Components:
-        Phi0 = self.Efield.Phi_of_psi(0)
-        Phi_wall = self.Efield.Phi_of_psi(self.psi_wall)
+        self.Phi0 = self.Efield.Phi_of_psi(0) * self.Volts_to_NU
+        self.Phi_wall = self.Efield.Phi_of_psi(self.psi_wall) * self.Volts_to_NU
 
         # Parabolas constants [a, b, c]
         # __________________________________________________________
         # Top left
         abc1 = [
-            -B0 * Bmin * self.psi_wall**2 / (2 * self.g**2 * self.E),
-            -B0 * Bmin * self.psi_wall**2 / (self.g**2 * self.E),
-            -B0 * Bmin * self.psi_wall**2 / (2 * self.g**2 * self.E)
-            + B0 / Bmin * (1 - Phi_wall / self.E),
+            -B0_NU * Bmin * self.psi_wall**2 / (2 * self.g**2 * self.E),
+            -B0_NU * Bmin * self.psi_wall**2 / (self.g**2 * self.E),
+            -B0_NU * Bmin * self.psi_wall**2 / (2 * self.g**2 * self.E)
+            + B0_NU / Bmin * (1 - self.Phi_wall / self.E),
         ]
         # Bottom left
         abc2 = [
-            -B0 * Bmax * self.psi_wall**2 / (2 * self.g**2 * self.E),
-            -B0 * Bmax * self.psi_wall**2 / (self.g**2 * self.E),
-            -B0 * Bmax * self.psi_wall**2 / (2 * self.g**2 * self.E)
-            + B0 / Bmax * (1 - Phi_wall / self.E),
+            -B0_NU * Bmax * self.psi_wall**2 / (2 * self.g**2 * self.E),
+            -B0_NU * Bmax * self.psi_wall**2 / (self.g**2 * self.E),
+            -B0_NU * Bmax * self.psi_wall**2 / (2 * self.g**2 * self.E)
+            + B0_NU / Bmax * (1 - self.Phi_wall / self.E),
         ]
         # Right (Magnetic Axis)
-        abc3 = [-(B0**2) * self.psi_wall**2 / (2 * self.g**2 * self.E), 0, -Phi0 / self.E + 1]
+        abc3 = [
+            -(B0_NU**2) * self.psi_wall**2 / (2 * self.g**2 * self.E),
+            0,
+            1 - self.Phi_wall / self.E,
+        ]
         # __________________________________________________________
 
         # Calculate all x-intercepts and use the 2 outermost
@@ -129,12 +134,12 @@ class Orbit_parabolas:
 
         x = np.linspace(x1, x2, 1000)
 
-        B0 = 1
+        B0_NU = 1
         B1 = 1 - np.sqrt(-2 * self.psi_wall * x)
         B2 = 1 + np.sqrt(-2 * self.psi_wall * x)
 
-        y1_plot = B0 / B1 * (1 - self.Efield.Phi_of_psi(0) / self.E)  # upper
-        y2_plot = B0 / B2 * (1 - self.Efield.Phi_of_psi(0) / self.E)  # lower
+        y1_plot = B0_NU / B1 * (1 - self.Phi_wall / self.E)  # upper
+        y2_plot = B0_NU / B2 * (1 - self.Phi_wall / self.E)  # lower
 
         plt.plot(x, y1_plot, **self.Config.parabolas_dashed_plot_kw)
         plt.plot(x, y2_plot, **self.Config.parabolas_dashed_plot_kw)
