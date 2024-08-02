@@ -38,7 +38,7 @@ class Orbit_parabolas:
         self.psi_wall = (self.r_wall) ** 2 / 2  # normalized to R
         self.Volts_to_NU = Volts_to_NU
 
-        # self.B0 = 1
+        self.B0 = 1
         self.Bmin = self.B0 * (1 - np.sqrt(2 * self.psi_wall))  # "Bmin occurs at psip_wall, θ = 0"
         self.Bmax = self.B0 * (1 + np.sqrt(2 * self.psi_wall))  # "Bmax occurs at psip_wall, θ = π"
 
@@ -121,6 +121,7 @@ class Orbit_parabolas:
         _, top = top_par.get_extremum()
         plt.gca().set_ylim(bottom=self.ylim[0], top=self.ylim[1])
         plt.ylabel("$\dfrac{\mu B_0}{E}\t$", rotation=0)
+        plt.xlabel("$P_\zeta/\psi_p$")
         plt.title("Orbit types in the plane of $P_\zeta - \mu$ for fixed energy.", c="b")
 
     def plot_tp_boundary(self):

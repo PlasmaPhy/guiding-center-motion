@@ -556,6 +556,7 @@ class Particle:
         plt.plot(self.orbit_x, self.orbit_y, **self.Config.orbit_point_kw)
         label = "  Particle " + f"({self.t_or_p[0]}-{self.l_or_c[0]})"
         plt.annotate(label, (self.orbit_x, self.orbit_y), color="b")
+        plt.xlabel("$P_\zeta/\psi_p$")
         # plt.ylim(max(plt.gca().get_ylim()[1], 1.1 * self.orbit_y))
 
     def plot_torus2d(self, percentage=100, truescale=False):

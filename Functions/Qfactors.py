@@ -71,8 +71,11 @@ class Parabolic:  # Ready to commit
 class Hypergeometric:  # Ready to commit
     """Initializes an object q with "q = hypergeometric"."""
 
-    def __init__(self, psi_wall=0.12, q0=1.1, psi_knee=2.5, n=2):
-        self.psi_wall = psi_wall
+    def __init__(self, R, a, q0=1.1, psi_knee=2.5, n=2):
+        self.r_wall = a / R
+        self.psi_wall = (self.r_wall) ** 2 / 2  # normalized to R
+
+        self.psi_wall = self.psi_wall
         self.q0 = q0
         self.psi_knee = 0.75 * self.psi_wall
         self.n = n
