@@ -16,7 +16,7 @@ class Orbit_parabolas:
     the dashed comments.
     """
 
-    def __init__(self, cwp):  # Ready to commit
+    def __init__(self, R, a, mu, Bfield, Efield, Volts_to_NU):  # Ready to commit
         """Constructs the 3 parabolas and calculates the special points.
 
         Args:
@@ -29,43 +29,47 @@ class Orbit_parabolas:
         # Grab configuration
         self.Config = utils.ConfigFile()
 
-        self.q = cwp.q
-        self.E = cwp.E
-        self.I, self.g, self.B0 = cwp.Bfield
-        self.Efield = cwp.Efield
-        self.psi_wall = cwp.psi_wall
-        self.psip_wall = self.q.psip_of_psi(cwp.psi_wall)
-        self.Volts_to_NU = cwp.Volts_to_NU
+        self.R = R
+        self.a = a
+        self.mu = mu
+        self.I, self.g, self.B0 = Bfield
+        self.Efield = Efield
+        self.r_wall = self.a / self.R
+        self.psi_wall = (self.r_wall) ** 2 / 2  # normalized to R
+        self.Volts_to_NU = Volts_to_NU
 
-        B0 = 1
-        Bmin = B0 * (1 - np.sqrt(2 * self.psi_wall))  # "Bmin occurs at psip_wall, θ = 0"
-        Bmax = B0 * (1 + np.sqrt(2 * self.psi_wall))  # "Bmax occurs at psip_wall, θ = π"
+        # self.B0 = 1
+        self.Bmin = self.B0 * (1 - np.sqrt(2 * self.psi_wall))  # "Bmin occurs at psip_wall, θ = 0"
+        self.Bmax = self.B0 * (1 + np.sqrt(2 * self.psi_wall))  # "Bmax occurs at psip_wall, θ = π"
 
         # Electric Potential Components:
         self.Phi0 = self.Efield.Phi_of_psi(0) * self.Volts_to_NU
         self.Phi_wall = self.Efield.Phi_of_psi(self.psi_wall) * self.Volts_to_NU
-        m = cwp.mass_amu
+        m = 1
         # Parabolas constants [a, b, c]
         # __________________________________________________________
         # Top left
+        self.E1 = mu * self.Bmin + self.Phi_wall
         abc1 = [
-            -B0 * Bmin * self.psi_wall**2 / (2 * self.g**2 * self.E * m),
-            -B0 * Bmin * self.psi_wall**2 / (self.g**2 * self.E * m),
-            -B0 * Bmin * self.psi_wall**2 / (2 * self.g**2 * self.E * m)
-            + B0 / Bmin * (1 - self.Phi_wall / self.E),
+            -self.B0 * self.Bmin * self.psi_wall**2 / (2 * self.g**2 * self.E1 * m),
+            -self.B0 * self.Bmin * self.psi_wall**2 / (self.g**2 * self.E1 * m),
+            -self.B0 * self.Bmin * self.psi_wall**2 / (2 * self.g**2 * self.E1 * m)
+            + self.B0 / self.Bmin,
         ]
         # Bottom left
+        self.E2 = mu * self.Bmax + self.Phi_wall
         abc2 = [
-            -B0 * Bmax * self.psi_wall**2 / (2 * self.g**2 * self.E * m),
-            -B0 * Bmax * self.psi_wall**2 / (self.g**2 * self.E * m),
-            -B0 * Bmax * self.psi_wall**2 / (2 * self.g**2 * self.E * m)
-            + B0 / Bmax * (1 - self.Phi_wall / self.E),
+            -self.B0 * self.Bmax * self.psi_wall**2 / (2 * self.g**2 * self.E2 * m),
+            -self.B0 * self.Bmax * self.psi_wall**2 / (self.g**2 * self.E2 * m),
+            -self.B0 * self.Bmax * self.psi_wall**2 / (2 * self.g**2 * self.E2 * m)
+            + self.B0 / self.Bmax,
         ]
         # Right (Magnetic Axis)
+        self.E3 = mu * self.B0 + self.Phi0
         abc3 = [
-            -(B0**2) * self.psi_wall**2 / (2 * self.g**2 * self.E * m),
+            -(self.B0**2) * self.psi_wall**2 / (2 * self.g**2 * self.E3 * m),
             0,
-            1 - self.Phi_wall / self.E,
+            1,
         ]
         # __________________________________________________________
 
@@ -97,7 +101,7 @@ class Orbit_parabolas:
         self.xlim = [x_intercepts.min(), x_intercepts.max()]
         self.ylim = [0, 1.1 * extremums.max()]
 
-    def plot_parabolas(self):  # Ready to commit
+    def plot_parabolas(self):
         """Plots the 3 parabolas."""
         # Top left
         x, y = self.par1.construct(self.xlim)
@@ -118,9 +122,8 @@ class Orbit_parabolas:
         plt.gca().set_ylim(bottom=self.ylim[0], top=self.ylim[1])
         plt.ylabel("$\dfrac{\mu B_0}{E}\t$", rotation=0)
         plt.title("Orbit types in the plane of $P_\zeta - \mu$ for fixed energy.", c="b")
-        plt.legend([f"Particle energy = {np.around(self.E,9)}"], loc="upper right", labelcolor="b")
 
-    def plot_tp_boundary(self):  # Ready to commit
+    def plot_tp_boundary(self):
         """Plots the Trapped-Passing Boundary."""
         # Vertical line
         foo = Parabola(self.abcs[0])
@@ -134,18 +137,23 @@ class Orbit_parabolas:
         x1 = self.par2.get_extremum()[0]
         x2 = self.par3.get_extremum()[0]
 
+        # E = self.mu * self.B0 + self.Phi_wall
+
         x = np.linspace(x1, x2, 1000)
 
-        B1 = 1 - np.sqrt(-2 * self.psi_wall * x)
-        B2 = 1 + np.sqrt(-2 * self.psi_wall * x)
+        B1 = 1 + np.sqrt(-2 * self.psi_wall * x)  # θ = 0
+        B2 = 1 - np.sqrt(-2 * self.psi_wall * x)  # θ = π
 
-        y1_plot = 1 / B1 * (1 - self.Phi_wall / self.E)  # upper
-        y2_plot = 1 / B2 * (1 - self.Phi_wall / self.E)  # lower
+        # E1 = self.mu * self.Bmax + self.Phi_wall  # θ = 0
+        # E2 = self.mu * self.Bmax + self.Phi0  # θ = π
+
+        y1_plot = 1 / B1  # upper
+        y2_plot = 1 / B2  # lower
 
         plt.plot(x, y1_plot, **self.Config.parabolas_dashed_plot_kw)
         plt.plot(x, y2_plot, **self.Config.parabolas_dashed_plot_kw)
 
-    def get_abcs(self):  # Ready to commit
+    def get_abcs(self):
         """Returns the consants of the 3 parabolas as [[...],[...],[...]]"""
         return self.abcs
 

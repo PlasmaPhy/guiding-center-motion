@@ -202,7 +202,9 @@ class Particle:
         # Find if lost or confined
         self.orbit_x = self.Pz0 / self.psip_wall
         self.orbit_y = self.mu / self.E
-        foo = Parabolas.Orbit_parabolas(self)
+        foo = Parabolas.Orbit_parabolas(
+            self.R, self.a, self.mu, self.Bfield, self.Efield, self.Volts_to_NU
+        )
 
         # Recalculate y by reconstructing the parabola (there might be a better way
         # to do this)
@@ -554,6 +556,7 @@ class Particle:
         plt.plot(self.orbit_x, self.orbit_y, **self.Config.orbit_point_kw)
         label = "  Particle " + f"({self.t_or_p[0]}-{self.l_or_c[0]})"
         plt.annotate(label, (self.orbit_x, self.orbit_y), color="b")
+        # plt.ylim(max(plt.gca().get_ylim()[1], 1.1 * self.orbit_y))
 
     def plot_torus2d(self, percentage=100, truescale=False):
         """Plots the poloidal and toroidal view of the orbit.

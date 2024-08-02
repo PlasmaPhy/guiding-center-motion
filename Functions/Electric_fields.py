@@ -121,9 +121,9 @@ class Radial:
 
         self.Ea = Ea  # V/m
         self.r0 = sqrt(2 * self.psi_wall)
-        self.ra = 0.98 * self.r0  # Defines the minimum point
+        self.ra = 0.7 * self.r0  # Defines the minimum point
         self.Efield_min = self.ra**2 / 2
-        self.rw = self.r0 / 50  # waist, not wall
+        self.rw = self.r0 / 10  # waist, not wall
         self.psia = self.ra**2 / 2
         self.psiw = self.rw**2 / 2  # waist, not wall
 
