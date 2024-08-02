@@ -82,12 +82,13 @@ class Nofield:
 class Parabolic:
     """Initializes an electric field of the form E = ar^2 + b"""
 
-    def __init__(self, psi_wall, q, a=1, b=0):
-        self.a = a
-        self.b = b
+    def __init__(self, R, a, q, alpha=1, beta=0):
+        self.a = alpha
+        self.b = beta
         self.q = q
-        self.psi_wall = psi_wall
-        self.psip_wall = q.psip_of_psi(psi_wall)
+        self.r_wall = a / R
+        self.psi_wall = (self.r_wall) ** 2 / 2  # normalized to R
+        self.psip_wall = q.psip_of_psi(self.psi_wall)
 
     def Phi_der(self, psi):
         r = np.sqrt(2 * psi)
@@ -111,9 +112,15 @@ class Radial:
     E(r) = -Ea_norm*exp(-(r-r_a)^2 / r_w^2))
     """
 
-    def __init__(self, psi_wall, q, Ea=75000):
+    def __init__(self, R, a, q, Ea=75000):
+
+        self.q = q
+        self.r_wall = a / R
+        self.psi_wall = (self.r_wall) ** 2 / 2  # normalized to R
+        self.psip_wall = q.psip_of_psi(self.psi_wall)
+
         self.Ea = Ea  # V/m
-        self.r0 = sqrt(2 * psi_wall)
+        self.r0 = sqrt(2 * self.psi_wall)
         self.ra = 0.98 * self.r0  # Defines the minimum point
         self.Efield_min = self.ra**2 / 2
         self.rw = self.r0 / 50  # waist, not wall
@@ -123,10 +130,6 @@ class Radial:
         # Square roots, makes it a bit faster
         self.sr_psia = sqrt(self.psia)
         self.sr_psiw = sqrt(self.psiw)
-
-        self.q = q
-        self.psi_wall = psi_wall
-        self.psip_wall = q.psip_of_psi(psi_wall)
 
     def Phi_der(self, psi):
         Phi_der_psip = (

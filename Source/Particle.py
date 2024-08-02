@@ -67,6 +67,7 @@ class Particle:
         # Initial conditions
         self.mu = mu
         self.theta0 = init_cond[0]
+        init_cond[1] *= self.psi_wall  # Normalize it to psi_wall
         self.psi0 = init_cond[1]
         self.z0 = init_cond[2]
         self.Pz0 = init_cond[3]
@@ -109,14 +110,10 @@ class Particle:
         Orbit is stored in "self"
         """
 
-        # Check if orbit has been already calculated
-        if self.calculated_orbit:
-            return
-
         def dSdt(t, S, mu=None):
             """Sets the diff equations system to pass to scipy.
 
-            All values are in normalized units.
+            All values are in normalized units (NU).
             """
 
             theta, psi, psip, z, rho = S
@@ -176,14 +173,14 @@ class Particle:
         """
 
         self.r0 = sqrt(2 * self.psi0)
-        self.B_init_NU = 1 - self.r0 * cos(self.theta0)
+        self.B_init = 1 - self.r0 * cos(self.theta0)
         self.Phi_init = float(self.Efield.Phi_of_psi(self.psi0))
         self.Phi_init_NU = self.Phi_init * self.Volts_to_NU
         # Constants of Motion: Particle energy and Pz
 
         self.E = (  # Normalized Energy from initial conditions
-            (self.Pz0 + self.psip0) ** 2 * self.B_init_NU**2 / (2 * self.g**2 * self.mass_amu)
-            + self.mu * self.B_init_NU
+            (self.Pz0 + self.psip0) ** 2 * self.B_init**2 / (2 * self.g**2 * self.mass_amu)
+            + self.mu * self.B_init
             + self.sign * self.Phi_init_NU
         )
 
@@ -191,12 +188,12 @@ class Particle:
         self.E_J = self.E * self.NU_to_J
 
         # Calculate Bmin and Bmax. In LAR, B decreases outwards.
-        self.Bmin_NU = 1 - sqrt(2 * self.psi_wall)  # "Bmin occurs at psi_wall, θ = 0"
-        self.Bmax_NU = 1 + sqrt(2 * self.psi_wall)  # "Bmax occurs at psi_wall, θ = π"
+        self.Bmin = 1 - sqrt(2 * self.psi_wall)  # "Bmin occurs at psi_wall, θ = 0"
+        self.Bmax = 1 + sqrt(2 * self.psi_wall)  # "Bmax occurs at psi_wall, θ = π"
 
         # Find if trapped or passing from rho (White page 83)
-        sqrt1 = 2 * self.E - 2 * self.mu * self.Bmin_NU
-        sqrt2 = 2 * self.E - 2 * self.mu * self.Bmax_NU
+        sqrt1 = 2 * self.E - 2 * self.mu * self.Bmin
+        sqrt2 = 2 * self.E - 2 * self.mu * self.Bmax
         if sqrt1 * sqrt2 < 0:
             self.t_or_p = "Trapped"
         else:
@@ -204,7 +201,7 @@ class Particle:
 
         # Find if lost or confined
         self.orbit_x = self.Pz0 / self.psip_wall
-        self.orbit_y = self.mu * self.B0 / self.E
+        self.orbit_y = self.mu / self.E
         foo = Parabolas.Orbit_parabolas(self)
 
         # Recalculate y by reconstructing the parabola (there might be a better way
@@ -553,8 +550,6 @@ class Particle:
     def plot_orbit_type_point(self):  # Needs checking
         """Plots the particle point on the μ-Pz (normalized) plane."""
 
-        # x = self.Pz0 / self.psip_wall
-        # y = self.mu / self.E
         print(self.orbit_x, self.orbit_y)
         plt.plot(self.orbit_x, self.orbit_y, **self.Config.orbit_point_kw)
         label = "  Particle " + f"({self.t_or_p[0]}-{self.l_or_c[0]})"
