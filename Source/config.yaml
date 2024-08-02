@@ -50,5 +50,5 @@ torus3d_wall_color: "cyan"
 torus3d_wall_alpha: 0.3
 torus3d_orbit_color: "red"
 torus3d_orbit_alpha: 0.6
-torus3d_orbit_size: .3
+torus3d_orbit_size: .2
 
