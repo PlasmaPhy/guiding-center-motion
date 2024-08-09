@@ -1,2 +1,1 @@
-#guiding-center-motion
-Small tool for calculating the guiding center motion of particles in toroidal magnetic field
+[API documentation](https://plasmaphy.github.io/guiding-center-motion/generated/gcmotion.html#module-gcmotion)
