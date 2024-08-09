@@ -1,75 +1,90 @@
-""" To add a new Electric Field, simply copy-paste an already existing class
-    (idealy the Nofield one) and fill the __init__() method with the 
-    parameters, and the Phi_der() and Er_of_psi(), and Phi_of_psi()
-    to fit your Electric Field.
- 
+"""
+Electric Fields
+===============
+
+To add a new Electric Field, simply copy-paste an already existing class
+(idealy the Nofield one) and fill the ``__init__()`` method with the 
+parameters, and the ``Phi_der()`` and ``Er_of_psi()``, and ``Phi_of_psi()``
+to fit your Electric Field.
+
+.. danger::
+    **All values, both input and output are in SI units.**
+
+    Specifically [V/m] and [V].
+
+.. note::
     Keep in mind that when those methods return singular values (rather than
     np.ndarrays), they should return a float, and not a np.float. This is mainly
     for optimization reason and should probably not cause problems.
 
-    ALL VALUES, BOTH INPUT PARAMETERS AND OUTPUT ARE IN SI UNITS, specifically 
-    [V/m] and [V].
+The general structure is this::
 
-    The general structure is this:
-
-    class <name>:
+    class MyElectricField:
 
         def __init__(self, **<parameters>):
             <set parameters>
-
+    
         def Phi_der(self, psi): 
-            > Derivatives of Φ(ψ) with respect to ψ_π, θ, in [V].
-            > 
-            > Intended for use only inside the ODE solver. Returns the potential
-            > in [V], so the normalisation is done inside the solver.
-            > Args:
-            >     psi(float): the magnetic flux surface.
-            > Returns:
-            >     list: list containing the calculated derivatives as floats
-            
             return [Phi_der_psip, Phi_der_theta]
-
+    
         def Er_of_psi(self, psi):
-            > Calculates radial Electric field component in [V/m] from ψ.
-            > 
-            > Used for plotting the Electric field
-            > 
-            > Args:
-            >     psi (np.ndarray): The ψ values.
-            > 
-            > Returns:
-            >     np.ndarray: Numpy array with calculated E values.
-            > 
             r = np.sqrt(2 * psi)
             return E
-
+    
         def Phi_of_psi(self, psi):
-        > Calculates Electric Potential in [V] from ψ.
-        > 
-        > Used for plotting the Electric Potential, the particles initial Φ,
-        > and the Φ values for the contour plot.
-        > 
-        > Args:
-        >     psi (np.ndarray): The ψ values.
-        > 
-        > Returns:
-        >     np.ndarray: Numpy array with calculated values. 
-
-        return Phi
-    """
+            return Phi
+"""
 
 import numpy as np
 from scipy.special import erf
 from math import sqrt, exp
+from abc import ABC, abstractmethod
 
+class ElectricField(ABC):
+    """Electric field base class"""
 
-class Nofield:
+    @abstractmethod
+    def Phi_der(self, psi: float) -> tuple[float, float]:
+        """Derivatives of Φ(ψ) with respect to ψ_π, θ, in [V].
+        
+        Intended for use only inside the ODE solver. Returns the potential
+        in [V], so the normalisation is done inside the solver.
+        
+        :param psi: The magnetic flux surface.
+        :return: List containing the calculated derivatives as floats
+        """
+        pass
+
+    @abstractmethod
+    def Er_of_psi(self, psi: np.ndarray) -> np.ndarray:
+        """Calculates radial Electric field component in [V/m] from ψ.
+        
+        Used for plotting the Electric field
+        
+        :param psi: The ψ values.
+        :returns: Numpy array with calculated E values.
+        """
+        pass
+
+    @abstractmethod
+    def Phi_of_psi(self, psi: np.ndarray) -> np.ndarray:
+        """Calculates Electric Potential in [V] from ψ.
+
+        Used for plotting the Electric Potential, the particles initial Φ,
+        and the Φ values for the contour plot.
+
+        :param psi: The ψ values.
+        :returns: Numpy array with calculated values.
+        """
+        pass
+
+class Nofield(ElectricField):
     """Initializes an electric field of 0
 
     Exists to avoid compatibility issues.
     """
 
-    def Phi_der(self, psi):
+    def Phi_der(self, _psi):
         return [0, 0]
 
     def Er_of_psi(self, psi):
@@ -79,8 +94,10 @@ class Nofield:
         return 0 * psi
 
 
-class Parabolic:
-    """Initializes an electric field of the form E = ar^2 + b"""
+class Parabolic(ElectricField):
+    """
+    Initializes an electric field of the form: :math:`E(r) = ar^2 + b`
+    """
 
     def __init__(self, R, a, q, alpha=1, beta=0):
         self.a = alpha
@@ -107,9 +124,9 @@ class Parabolic:
         return Phi
 
 
-class Radial:
+class Radial(ElectricField):
     """Initializes an electric field of the form:
-    E(r) = -Ea_norm*exp(-(r-r_a)^2 / r_w^2))
+    :math:`E(r) = -E{a,norm}*exp(-(r-r_a)^2 / r_w^2))`
     """
 
     def __init__(self, R, a, q, Ea=75000):

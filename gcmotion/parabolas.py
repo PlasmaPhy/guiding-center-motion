@@ -1,13 +1,11 @@
-"""
-This class constructs the parabolas that classify each orbit type
-"""
+"""This class constructs the parabolas that classify each orbit type"""
 
 import numpy as np
 import matplotlib.pyplot as plt
-import Source.utils as utils
+from . import utils
 
 
-class Orbit_parabolas:
+class OrbitParabolas:
     """
     Constructs 3 parabolas  ax^2 + bx + c = 0, and finds the special points.
 
@@ -16,15 +14,14 @@ class Orbit_parabolas:
     the dashed comments.
     """
 
-    def __init__(self, R, a, mu, Bfield, Efield, Volts_to_NU):  # Ready to commit
+    def __init__(self, R, a, mu, Bfield, Efield, Volts_to_NU):
         """Constructs the 3 parabolas and calculates the special points.
 
-        Args:
-            E (float): The particle's energy
-            B (list, optional): The 3 componets of the contravariant representation
-                                of the magnetic field B.
-            psip_wall (float, optional): The value of ψ at the wall. Better be lower
-                                lower than 0.5.
+        :param E: (float) The particle's energy
+        :param B: (list) The 3 componets of the contravariant representation
+            of the magnetic field B.
+        :param psip_wall: (float) The value of ψ at the wall. Better be lower
+            lower than 0.5.
         """
         # Grab configuration
         self.Config = utils.ConfigFile()
@@ -103,6 +100,7 @@ class Orbit_parabolas:
 
     def plot_parabolas(self):
         """Plots the 3 parabolas."""
+
         # Top left
         x, y = self.par1.construct(self.xlim)
         plt.plot(x, y, **self.Config.parabolas_normal_plot_kw)
@@ -120,12 +118,13 @@ class Orbit_parabolas:
         top_par = Parabola(self.abcs[0])
         _, top = top_par.get_extremum()
         plt.gca().set_ylim(bottom=self.ylim[0], top=self.ylim[1])
-        plt.ylabel("$\dfrac{\mu B_0}{E}\t$", rotation=0)
-        plt.xlabel("$P_\zeta/\psi_p$")
-        plt.title("Orbit types in the plane of $P_\zeta - \mu$ for fixed energy.", c="b")
+        plt.ylabel(r"$\dfrac{\mu B_0}{E}$", rotation=0)
+        plt.xlabel(r"$P_\zeta/\psi_p$")
+        plt.title(r"Orbit types in the plane of $P_\zeta - \mu$ for fixed energy.", c="b")
 
     def plot_tp_boundary(self):
         """Plots the Trapped-Passing Boundary."""
+
         # Vertical line
         foo = Parabola(self.abcs[0])
         p1 = foo.get_extremum()
@@ -156,21 +155,21 @@ class Orbit_parabolas:
 
     def get_abcs(self):
         """Returns the consants of the 3 parabolas as [[...],[...],[...]]"""
+
         return self.abcs
 
 
 class Parabola:
-    """Creates a parabola ax^2 + bx + c = 0,
+    """Creates a parabola :math:`ax^2 + bx + c = 0`,
 
-    Both x and y are normalized, x = Pz/psip_wall and y=μB0/E.
+    Both x and y are normalized, :math:`x = Pz/psip_wall` and :math:`y=μB0/E`.
     Stores minimum/maximum and intercepts
     """
 
-    def __init__(self, abc):  # Ready to commit
+    def __init__(self, abc: np.array):  # Ready to commit
         """Initialization and intercepts/extremums calculation.
 
-        Args:
-            abc (array): 1d array containing the 3 constants.
+        :param abc: 1d array containing the 3 constants.
         """
         self.a = abc[0]
         self.b = abc[1]

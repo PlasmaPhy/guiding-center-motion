@@ -1,9 +1,6 @@
 import numpy as np
 import yaml
-import Source.Particle as Particle
-import Source.utils as utils
-import Functions.Electric_fields as Electric_fields
-import Functions.Qfactors as Qfactors
+from . import Particle, utils
 import matplotlib.pyplot as plt
 
 

@@ -3,14 +3,15 @@ This module initializes the "Particle" class, which calculates the orbit,
 orbit type, and can draw several different plots
 """
 
+from typing import Literal
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 from math import sqrt, sin, cos
 from matplotlib.patches import Rectangle
-import Source.utils as utils
-import Source.Parabolas as Parabolas
-
+from .efields import ElectricField
+from .parabolas import OrbitParabolas
+from . import utils
 
 class Particle:
     """Initializes a particle.
@@ -19,28 +20,30 @@ class Particle:
     should be changed in the ./Functions folder.
     """
 
-    def __init__(self, species, mu, init_cond, tspan, R, a, q, Bfield, Efield):
+    def __init__(self,
+                 species: str,
+                 mu: float,
+                 init_cond: np.array,
+                 tspan: np.array,
+                 R: float, a: float,
+                 q, Bfield: list, Efield: ElectricField):
         """Initializes particle and grabs configuration.
 
-        Args:
-            species (str): the particle species, used to later set charge and mass
-                                automatically (from config.yaml)
-            init_cond (np.array): 1x3 initial conditions array (later, self.init_cond
-                                includes 2 more initial conditions)
-            mu (float): magnetic moment
-            tspan (np.array): The ODE interval, in [t0, tf, steps]
-            q (object): Qfactor object that supports query methods for getting values
-                                of ψ(ψ_p), ψ_p(ψ), q(ψ) and q(ψ_p)
-            R (float): The tokamak's major radius in [m]
-            a (float): The tokamak's minor radius in [m]
-            B (list, optional): The toroidal and poloidal currents, and the field
-                                magnitude (in [T]) of the magnetic field B.
-            E (object): Electric Field Object that supports query methods for getting
-                                values for the field itself and some derivatives of
-                                its potential.
-            psi_wall (float, optional): The value of ψ at the wall. Better be low enough
-                                so that ψ_p is lower than 0.5, which depends on the q
-                                factor.
+        :param species: the particle species, used to later set charge and mass
+            automatically (from config.yaml)
+        :param mu: magnetic moment
+        :param init_cond: 1x3 initial conditions array (later, self.init_cond
+            includes 2 more initial conditions)
+        :param tspan: The ODE interval, in [t0, tf, steps]
+        :param R: The tokamak's major radius in [m]
+        :param a: The tokamak's minor radius in [m]
+        :param q: Qfactor object that supports query methods for getting values
+            of ψ(ψ_p), ψ_p(ψ), q(ψ) and q(ψ_p)
+        :param B: The toroidal and poloidal currents, and the field
+            magnitude (in [T]) of the magnetic field B.
+        :param E: Electric Field Object that supports query methods for getting
+            values for the field itself and some derivatives of
+            its potential.
         """
 
         # Grab configuration
@@ -76,7 +79,7 @@ class Particle:
         self.rho0 = self.Pz0 + self.psip0  # Pz0 + psip0
         init_cond.insert(2, self.psip0)
         init_cond.insert(5, self.rho0)
-        self.init_cond = init_cond  # contains all 5
+        self.ode_init = [self.theta0, self.psi0, self.psip0, self.z0, self.rho0] 
 
         # psi_p > 0.5 warning
         if self.psip_wall >= 0.5:
@@ -141,9 +144,7 @@ class Particle:
 
             return [theta_dot, psi_dot, psip_dot, z_dot, rho_dot]
 
-        sol_init = self.init_cond
-        del sol_init[4]  # Drop Pz0
-        self.sol = odeint(dSdt, y0=sol_init, t=self.tspan, tfirst=True)
+        self.sol = odeint(dSdt, y0=self.ode_init, t=self.tspan, tfirst=True)
 
         self.theta = self.sol.T[0]
         self.psi = self.sol.T[1]
@@ -202,7 +203,7 @@ class Particle:
         # Find if lost or confined
         self.orbit_x = self.Pz0 / self.psip_wall
         self.orbit_y = self.mu / self.E
-        foo = Parabolas.Orbit_parabolas(
+        foo = OrbitParabolas(
             self.R, self.a, self.mu, self.Bfield, self.Efield, self.Volts_to_NU
         )
 
@@ -277,13 +278,11 @@ class Particle:
 
         return W
 
-    def plot_electric(self, q_plot=False, zoom=None):
+    def plot_electric(self, q_plot: bool = False, zoom: list = None):
         """Plots the electric field, potential, and q factor
 
-        Args:
-            q_plot (bool, optional): Plot q factor. Defaults to False.
-            zoom (list, optional): zoom to specific area in the x-axis of the electric
-                                field and potential plots. Defaults to None.
+        :param q_plot: Plot q factor.
+        :param zoom: zoom to specific area in the x-axis of the electric field and potential plots.
         """
 
         psi = np.linspace(0, 1.1 * self.psi_wall, 1000)
@@ -312,14 +311,14 @@ class Particle:
         # Radial E field
         ax[0][0].plot(psi / self.psi_wall, Er, color="b", linewidth=3)
         ax[0][0].plot([1, 1], [Er.min(), Er.max()], color="r", linewidth=3)
-        ax[0][0].set_xlabel("$\psi/\psi_{wall}$")
+        ax[0][0].set_xlabel(r"$\psi/\psi_{wall}$")
         ax[0][0].set_ylabel(E_ylabel)
         ax[0][0].set_title("Radial electric field [kV/m]", c="b")
 
         # Electric Potential
         ax[0][1].plot(psi / self.psi_wall, Phi, color="b", linewidth=3)
         ax[0][1].plot([1, 1], [Phi.min(), Phi.max()], color="r", linewidth=3)
-        ax[0][1].set_xlabel("$\psi/\psi_{wall}$")
+        ax[0][1].set_xlabel(r"$\psi/\psi_{wall}$")
         ax[0][1].set_ylabel(Phi_ylabel)
         ax[0][1].set_title("Electric Potential [kV]", c="b")
 
@@ -337,17 +336,17 @@ class Particle:
         ax[1][0].plot(psi / self.psi_wall, y1, color="b", linewidth=3)
         ax[1][0].plot([1, 1], [y1.min(), y1.max()], color="r", linewidth=3)
 
-        ax[1][0].set_xlabel("$\psi/\psi_{wall}$")
-        ax[1][0].set_ylabel("$q(\psi)$", rotation=0)
-        ax[1][0].set_title("$\\text{q factor }q(\psi)$", c="b")
+        ax[1][0].set_xlabel(r"$\psi/\psi_{wall}$")
+        ax[1][0].set_ylabel(r"$q(\psi)$", rotation=0)
+        ax[1][0].set_title(r"$\text{q factor }q(\psi)$", c="b")
 
         # ψ_π(ψ)
         y2 = self.q.psip_of_psi(psi)
         ax[1][1].plot(psi / self.psi_wall, y2, color="b", linewidth=3)
         ax[1][1].plot([1, 1], [y2.min(), y2.max()], color="r", linewidth=3)
-        ax[1][1].set_xlabel("$\psi/\psi_{wall}$")
-        ax[1][1].set_ylabel("$\psi_p(\psi)$", rotation=0)
-        ax[1][1].set_title("$\psi_p(\psi)$", c="b")
+        ax[1][1].set_xlabel(r"$\psi/\psi_{wall}$")
+        ax[1][1].set_ylabel(r"$\psi_p(\psi)$", rotation=0)
+        ax[1][1].set_title(r"$\psi_p(\psi)$", c="b")
 
     def plot_time_evolution(self, percentage=100):
         """
@@ -374,13 +373,13 @@ class Particle:
         ax[5].scatter(self.tspan[:points], self.Ptheta[:points], **self.Config.time_scatter_kw)
         ax[6].scatter(self.tspan[:points], self.Pzeta[:points], **self.Config.time_scatter_kw)
 
-        ax[0].set_ylabel("$\\theta(t)$\t", **self.Config.time_ylabel_kw)
-        ax[1].set_ylabel("$\\zeta(t)$\t", **self.Config.time_ylabel_kw)
-        ax[2].set_ylabel("$\\psi(t)$\t", **self.Config.time_ylabel_kw)
-        ax[3].set_ylabel("$\\psi_p(t)$\t", **self.Config.time_ylabel_kw)
-        ax[4].set_ylabel("$\\rho(t)$\t", **self.Config.time_ylabel_kw)
-        ax[5].set_ylabel("$P_\\theta(t)$\t\t", **self.Config.time_ylabel_kw)
-        ax[6].set_ylabel("$P_\\zeta(t)$\t", **self.Config.time_ylabel_kw)
+        ax[0].set_ylabel(r"$\theta(t)$", **self.Config.time_ylabel_kw)
+        ax[1].set_ylabel(r"$\zeta(t)$", **self.Config.time_ylabel_kw)
+        ax[2].set_ylabel(r"$\psi(t)$", **self.Config.time_ylabel_kw)
+        ax[3].set_ylabel(r"$\psi_p(t)$", **self.Config.time_ylabel_kw)
+        ax[4].set_ylabel(r"$\rho(t)$", **self.Config.time_ylabel_kw)
+        ax[5].set_ylabel(r"$P_\theta(t)$", **self.Config.time_ylabel_kw)
+        ax[6].set_ylabel(r"$P_\zeta(t)$", **self.Config.time_ylabel_kw)
         ax[6].set_ylim([-self.psip_wall, self.psip_wall])
 
         plt.xlabel("$t$")
@@ -398,16 +397,16 @@ class Particle:
 
         fig, ax = plt.subplots(1, 2, figsize=(12, 5))
         fig.tight_layout()
-        fig.suptitle("Drift orbits of $P_\\theta - \\theta$ and $P_\zeta - \zeta$")
+        fig.suptitle(r"Drift orbits of $P_\theta - \theta$ and $P_\zeta - \zeta$")
 
         ax[0].scatter(self.theta_plot, self.Ptheta, **self.Config.drift_scatter_kw)
         ax[1].plot(self.z, self.Pzeta, **self.Config.drift_plot_kw)
 
-        ax[0].set_xlabel("$\\theta$", **self.Config.drift_xlabel_kw)
-        ax[1].set_xlabel("$\\zeta$", **self.Config.drift_xlabel_kw)
+        ax[0].set_xlabel(r"$\theta$", **self.Config.drift_xlabel_kw)
+        ax[1].set_xlabel(r"$\zeta$", **self.Config.drift_xlabel_kw)
 
-        ax[0].set_ylabel("$P_\\theta$", **self.Config.drift_ylabel_kw)
-        ax[1].set_ylabel("$P_ζ$", **self.Config.drift_ylabel_kw)
+        ax[0].set_ylabel(r"$P_\theta$", **self.Config.drift_ylabel_kw)
+        ax[1].set_ylabel(r"$P_ζ$", **self.Config.drift_ylabel_kw)
 
         ax[1].set_ylim([-self.psip_wall, self.psip_wall])
         plt.sca(ax[0])
@@ -420,11 +419,10 @@ class Particle:
         plt.xticks(np.linspace(-2 * np.pi, 2 * np.pi, 9), ticks)
         plt.xlim(theta_lim)
 
-    def plot_Ptheta_drift(self, theta_lim, ax):
+    def plot_Ptheta_drift(self, theta_lim: np.ndarray, ax):
         """Draws θ - P_θ plot.
 
-        Args:
-            theta_lim (np.array): x-axis limits
+        :param theta_lim: x-axis limits
         """
 
         # Set theta lim. Mods all thetas to 2π
@@ -434,8 +432,8 @@ class Particle:
         ax.scatter(
             self.theta_plot, self.Ptheta / self.psi_wall, **self.Config.drift_scatter_kw, zorder=2
         )
-        ax.set_xlabel("$\\theta$", **self.Config.drift_xlabel_kw)
-        ax.set_ylabel("$P_\\theta$", **self.Config.drift_ylabel_kw)
+        ax.set_xlabel(r"$\theta$", **self.Config.drift_xlabel_kw)
+        ax.set_ylabel(r"$P_\theta$", **self.Config.drift_ylabel_kw)
 
         # Set all xticks as multiples of π, and then re-set xlims (smart!)
         ticks = ["-2π", "-3π/2", "-π", "-π/2", "0", "π/2", "π", "3π/2", "2π"]
@@ -444,30 +442,29 @@ class Particle:
 
     def contour_energy(
         self,
-        theta_lim,
-        psi_lim="auto",
-        plot_drift=True,
-        contour_Phi=True,
-        units="keV",
-        levels=None,
-        wall_shade=True,
+        theta_lim: list,
+        psi_lim: str | list = "auto",
+        plot_drift: bool = True,
+        contour_Phi: bool = True,
+        units: Literal["normal", "eV", "keV"] = "keV",
+        levels: int = None,
+        wall_shade: bool = True,
     ):
         """Draws a 2D contour plot of the Hamiltonian
 
         Can also plot the current particle's θ-Pθ drift. Should be False when
         running with multiple initial conditions.
-        Args:
-            theta_lim (list): Plot xlim. Must be either [0,2π] or [-π,π]/
-            psi_lim (str/list, optional): If a list is passed, it plots between the
-                    2 values relative to ψ_wall. Defaults to "auto".
-            plot_drift (bool, optional): Whether or not to plot θ=Ρθ drift on top.
-            contour_Phi (bool, optional): Whether or not to add the Φ term in the
-                    energy contour.
-            units (str, optional): The units in which energies are displayed. Must
-                    be either "normal", "eV", or "keV".
-            levels (int, optional): The number of contour levels. Defaults to
-                    Config setting.
-            wall_shade (bool, optional): Whether to shade the region ψ/ψ_wall > 1.
+        
+        :param theta_lim: Plot xlim. Must be either [0,2π] or [-π,π]
+        :param psi_lim: If a list is passed, it plots between the
+                2 values relative to ψ_wall. Defaults to "auto".
+        :param plot_drift: Whether or not to plot θ=Ρθ drift on top.
+        :param contour_Phi: Whether or not to add the Φ term in the
+                 energy contour.
+        :param units: The units in which energies are displayed.
+            Must be either "normal", "eV", or "keV".
+        :param levels: The number of contour levels. Defaults to Config setting.
+        :param wall_shade: Whether to shade the region ψ/ψ_wall > 1.
         """
 
         fig = plt.figure(figsize=(6, 4))
@@ -533,8 +530,8 @@ class Particle:
 
         # Contour plot
         C = ax.contourf(theta, psi / self.psi_wall, values, **contour_kw)
-        ax.set_xlabel("$\\theta$")
-        ax.set_ylabel("$\\psi/\\psi_{wall}\t$", rotation=90)
+        ax.set_xlabel(r"$\theta$")
+        ax.set_ylabel(r"$\psi/\psi_{wall}$", rotation=90)
         ticks = ["-2π", "-3π/2", "-π", "-π/2", "0", "π/2", "π", "3π/2", "2π"]
         plt.xticks(np.linspace(-2 * np.pi, 2 * np.pi, 9), ticks)
         ax.set(xlim=[self.theta_min, self.theta_max], ylim=np.array(psi_lim) / self.psi_wall)
@@ -556,16 +553,15 @@ class Particle:
         plt.plot(self.orbit_x, self.orbit_y, **self.Config.orbit_point_kw)
         label = "  Particle " + f"({self.t_or_p[0]}-{self.l_or_c[0]})"
         plt.annotate(label, (self.orbit_x, self.orbit_y), color="b")
-        plt.xlabel("$P_\zeta/\psi_p$")
+        plt.xlabel(r"$P_\zeta/\psi_p$")
         # plt.ylim(max(plt.gca().get_ylim()[1], 1.1 * self.orbit_y))
 
-    def plot_torus2d(self, percentage=100, truescale=False):
+    def plot_torus2d(self, percentage : int = 100, truescale : bool = False):
         """Plots the poloidal and toroidal view of the orbit.
-
-        Args:
-            percentage (int): 0-100: the percentage of the orbit to be plotted
-            truescale (bool): Whether or not to construct the torus and orbit with the
-                    actual units of R and r.
+        
+        :param percentage: 0-100: the percentage of the orbit to be plotted
+        :param truescale: Whether or not to construct the torus and orbit
+            with the actual units of R and r.
         """
 
         points = int(np.floor(self.theta.shape[0] * percentage / 100) - 1)
@@ -623,22 +619,26 @@ class Particle:
         ax[1].grid(False)
         ax[0].set_title("Toroidal View", c="b")
         ax[1].set_title("Top-Down View", c="b")
-        ax[0].set_xlabel("$\sqrt{2\psi} - \\theta$")
-        ax[1].set_xlabel("$\sqrt{2\psi}\cos\\theta - \\zeta$")
+        ax[0].set_xlabel(r"$\sqrt{2\psi} - \theta$")
+        ax[1].set_xlabel(r"$\sqrt{2\psi}\cos\theta - \zeta$")
         ax[0].tick_params(labelsize=8)
         ax[1].tick_params(labelsize=8)
 
-    def plot_torus3d(self, percentage=100, truescale=False, hd=True, bold=1, white_background=True):
+    def plot_torus3d(self,
+                     percentage: int = 100,
+                     truescale: bool = False,
+                     hd : bool = True,
+                     bold : int = 1,
+                     white_background : bool = True):
         """Creates a 3d transparent torus and a part of the particle's orbit
 
-        Args:
-            percentage (int): 0-100: the percentage of the orbit to be plotted
-            truescale (bool): Whether or not to construct the torus and orbit with the
-                    actual units of R and r.
-            hd (bool): High definition image
-            bold (int): The "boldness" level. Takes values between 1-3
-            white_background (bool): Whether to paint the background white or not.
-                    Overwrites the default plt.style()
+        :param percentage: 0-100: the percentage of the orbit to be plotted
+        :param truescale: Whether or not to construct the torus and
+            orbit with the actual units of R and r.
+        :param hd: High definition image
+        :param bold: The "boldness" level. Takes values between 1-3
+        :param white_background: Whether to paint the background white or not.
+            Overwrites the default plt.style()
         """
         points = int(np.floor(self.theta.shape[0] * percentage / 100) - 1)
         psi_plot = self.psi[:points]

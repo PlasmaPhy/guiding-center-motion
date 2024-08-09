@@ -1,14 +1,16 @@
-"""To add a new q-factor, simply copy-paste an already existing class
-   (idealy the Unity one) and fill the __init__() method with the 
-   parameters, and the q_of_psi() and psip_of_psi() to fit your q-factor.
+"""
+To add a new q-factor, simply copy-paste an already existing class
+(idealy the Unity one) and fill the __init__() method with the 
+parameters, and the q_of_psi() and psip_of_psi() to fit your q-factor.
 
-   Keep in mind that when those methods return singular values (rather than
-   np.ndarrays), they should return a float, and not a np.float. This is mainly
-   for optimization reason and should probably not cause problems.
+.. note::
+    Keep in mind that when those methods return singular values (rather than
+    np.ndarrays), they should return a float, and not a np.float. This is mainly
+    for optimization reason and should probably not cause problems.
 
-   The general structure is this:
+The general structure is this::
 
-    class <name>:
+    class MyQFactor:
         
         def __init__(self, **<parameters>):
             <set parameters>
@@ -41,8 +43,8 @@
             >     float/np.ndarray: Calculated ψ_p(ψ).
 
             return <expression>
-        
-    """
+            
+"""
 
 import numpy as np
 from scipy.special import hyp2f1

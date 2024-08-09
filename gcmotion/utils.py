@@ -1,5 +1,8 @@
+import sys
 import yaml
+import importlib
 import numpy as np
+from pathlib import Path
 
 
 class ConfigFile:
@@ -11,7 +14,7 @@ class ConfigFile:
     def __init__(self):
 
         # Set plot configurations dictionary from json file
-        with open("Source/config.yaml") as file:
+        with open(Path(__file__).parent.joinpath("config.yaml")) as file:
             self.config = yaml.safe_load(file)
 
         # Physical Constants
@@ -119,3 +122,7 @@ def theta_plot(theta, theta_lim=[0, 2 * np.pi]):
         print("theta_lim must be either [0,2*np.pi] or [-np.pi,np.pi].")
         return
     return theta_plot
+
+def reload():
+    for mod in [mod for name, mod in sys.modules.items() if "gcmotion" in name]:
+        importlib.reload(mod)
