@@ -137,8 +137,8 @@ class Particles:
 
         # Contour plot
         C = self.ax.contourf(theta, psi / p.psi_wall, values, **contour_kw)
-        self.ax.set_xlabel("$\\theta$")
-        self.ax.set_ylabel("$\\psi/\\psi_{wall}\t$", rotation=90)
+        self.ax.set_xlabel(r"$\theta$")
+        self.ax.set_ylabel(r"$\psi/\psi_{wall}$", rotation=90)
         ticks = ["-2π", "-3π/2", "-π", "-π/2", "0", "π/2", "π", "3π/2", "2π"]
         plt.xticks(np.linspace(-2 * np.pi, 2 * np.pi, 9), ticks)
         self.ax.set(xlim=[theta_lim[0], theta_lim[1]], ylim=self.psi_lim / p.psi_wall)

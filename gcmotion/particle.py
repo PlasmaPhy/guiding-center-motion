@@ -3,21 +3,23 @@ This module initializes the "Particle" class, which calculates the orbit,
 orbit type, and can draw several different plots
 """
 
-from typing import Literal
 import numpy as np
 import matplotlib.pyplot as plt
+from typing import Literal
 from scipy.integrate import odeint
 from math import sqrt, sin, cos
 from matplotlib.patches import Rectangle
-from .efields import ElectricField
+from .efield import ElectricField
+from .qfactor import QFactor
 from .parabolas import OrbitParabolas
 from . import utils
 
 class Particle:
-    """Initializes a particle.
+    """Initializes a particle, which calculates the orbit,
+    orbit type, and can draw several different plots
 
     Supposedly there is no need to change anything here. Electric Fields and Q factors
-    should be changed in the ./Functions folder.
+    should be changed in the respective ``gcmotion/*.py`` files.
     """
 
     def __init__(self,
@@ -26,21 +28,24 @@ class Particle:
                  init_cond: np.array,
                  tspan: np.array,
                  R: float, a: float,
-                 q, Bfield: list, Efield: ElectricField):
-        """Initializes particle and grabs configuration.
+                 q: QFactor, 
+                 Bfield: list, Efield: ElectricField):
+        r"""Initializes particle and grabs configuration.
 
         :param species: the particle species, used to later set charge and mass
             automatically (from config.yaml)
         :param mu: magnetic moment
-        :param init_cond: 1x3 initial conditions array (later, self.init_cond
-            includes 2 more initial conditions)
-        :param tspan: The ODE interval, in [t0, tf, steps]
+        :param init_cond: 1x4 initial conditions array (later, self.init_cond
+            includes 2 more initial conditions, 
+            [:math:`\theta_0, \psi_0, \psi_{p0}, \zeta_0, P_{\zeta 0}`])
+        :param tspan: The ODE interval, in [:math:`t_0, t_f`, steps]
         :param R: The tokamak's major radius in [m]
         :param a: The tokamak's minor radius in [m]
         :param q: Qfactor object that supports query methods for getting values
-            of ψ(ψ_p), ψ_p(ψ), q(ψ) and q(ψ_p)
+            of :math:`q(\psi)` and :math:`\psi_p(\psi)`.
         :param B: The toroidal and poloidal currents, and the field
-            magnitude (in [T]) of the magnetic field B.
+            magnitude (in [T]) of the magnetic field B, as in
+            :math:`[g, I, B_0]`.
         :param E: Electric Field Object that supports query methods for getting
             values for the field itself and some derivatives of
             its potential.
@@ -89,7 +94,7 @@ class Particle:
             )
 
         # Calculate conversion factors and certain quantities
-        self.conversion_factors()
+        self._conversion_factors()
 
         # Logic variables
         self.calculated_orbit = False
@@ -97,19 +102,22 @@ class Particle:
         self.l_or_c = "Unknown"
 
         # Calculate orbit type upon initialization
-        self.orbit_type_str = self.orbit_type(info=True)
+        self.orbit_type_str = self._orbit_type(info=True)
         print(self.__str__())
 
     def __str__(self):
-        # print orbit_type() results
+        # print _orbit_type() results
         return self.orbit_type_str
 
     def orbit(self):
-        """Calculates the orbit of the particle.
+        r"""Calculates the orbit of the particle, as well as
+        :math:`P_\theta` and :math:`\psi_p`.
 
-        Calculates a 2D numpy array, containing the 4 time evolution vectors of
-        each dynamical variable (θ, ψ_p, ζ, ρ). Afterwards, it calculates the
-        canonical momenta (P_θ, P_ζ).
+        Calculates the time evolution of the dynamical variables 
+        :math:`\theta, \psi, \zeta, \rho_{||}`. Afterwards, it calculates
+        the canonical momenta :math:`P_\theta` and :math:`P_\zeta`, and the
+        poloidal flux :math:`\psi_p` through the q factor.
+
         Orbit is stored in "self"
         """
 
@@ -158,9 +166,9 @@ class Particle:
 
         self.calculated_orbit = True
 
-    def orbit_type(self, info=True):
+    def _orbit_type(self, info=True):
         """
-        Calculates the orbit type given the initial conditions ONLY.
+        Estimates the orbit type given the initial conditions ONLY.
 
         Trapped/passing:
         The particle is trapped if rho vanishes, so we can
@@ -204,7 +212,7 @@ class Particle:
         self.orbit_x = self.Pz0 / self.psip_wall
         self.orbit_y = self.mu / self.E
         foo = OrbitParabolas(
-            self.R, self.a, self.mu, self.Bfield, self.Efield, self.Volts_to_NU
+            self.R, self.a, self.mu, self.Bfield, self.Efield, self.Volts_to_NU, plot = False
         )
 
         # Recalculate y by reconstructing the parabola (there might be a better way
@@ -238,7 +246,9 @@ class Particle:
         if info:
             return self.orbit_type_str
 
-    def conversion_factors(self):  # BETA
+    def _conversion_factors(self):
+        """ Calculates the conversion coeffecient used to convert to lab units.
+        """
         e = self.e  # 1.6*10**(-19)C
         m = self.mass_kg
         B = self.B0  # Tesla
@@ -252,11 +262,10 @@ class Particle:
         self.NU_to_J = e / self.E_unit  # ΣΩΣΤΟ
         self.Volts_to_NU = self.sign * self.E_unit  #
 
-    def calcW_grid(self, theta, psi, Pz, contour_Phi=True, units=True):
+    def _calcW_grid(self, theta, psi, Pz, contour_Phi=True, units=True):
         """Returns a single value or a grid of the calculated Hamiltonian.
 
-        Depending on the value of contour_Phi, it can include the Electric
-        Potential energy or not
+       Only to be called internally, by ``contour_energy()``.
         """
 
         r = np.sqrt(2 * psi)
@@ -279,7 +288,8 @@ class Particle:
         return W
 
     def plot_electric(self, q_plot: bool = False, zoom: list = None):
-        """Plots the electric field, potential, and q factor
+        r"""Plots the electric field, potential, and q factor,
+        with respect to :math:`\psi/\psi_{wall}`.
 
         :param q_plot: Plot q factor.
         :param zoom: zoom to specific area in the x-axis of the electric field and potential plots.
@@ -348,14 +358,17 @@ class Particle:
         ax[1][1].set_ylabel(r"$\psi_p(\psi)$", rotation=0)
         ax[1][1].set_title(r"$\psi_p(\psi)$", c="b")
 
-    def plot_time_evolution(self, percentage=100):
+    def plot_time_evolution(self, percentage: int = 100):
         """
-        Plots the time evolution of the dynamical variabls and
+        Plots the time evolution of all the dynamical variables and
         canonical momenta.
 
-        Args:
-        percentage (int): 0-100: the percentage of the orbit to be plotted
+        :param percentage: The percentage of the orbit to be plotted.
         """
+
+        if percentage < 1 or percentage > 100:
+            percentage = 100
+            print("Invalid percentage. Plotting the whole thing.")
 
         points = int(np.floor(self.theta.shape[0] * percentage / 100) - 1)
 
@@ -384,11 +397,12 @@ class Particle:
 
         plt.xlabel("$t$")
 
-    def plot_drift(self, theta_lim):
-        """Draws 2 plots: 1] θ-P_θ and 2] ζ-P_ζ
+    def plot_drift(self, theta_lim: list):
+        r"""Draws 2 plots: 1] :math:`\theta-P_\theta` 
+        and 2] :math:`\zeta-P_\zeta`.
 
-        Args:
-            theta_lim (np.array): x-axis limits
+        :param theta_lim: Plot xlim. Must be either [0,2π] or [-π,π].
+             Defaults to [-π,π].
         """
 
         # Set theta lim. Mods all thetas to 2π
@@ -420,10 +434,13 @@ class Particle:
         plt.xlim(theta_lim)
 
     def plot_Ptheta_drift(self, theta_lim: np.ndarray, ax):
-        """Draws θ - P_θ plot.
+        r"""Draws :math:`\theta - P_\theta` plot.
 
-        :param theta_lim: x-axis limits
-        """
+        This method is called internally by ``countour_energy()``
+        as well.
+        
+        :param theta_lim: Plot xlim. Must be either [0,2π] or [-π,π].
+             Defaults to [-π,π].        """
 
         # Set theta lim. Mods all thetas to 2π
         theta_min, theta_max = theta_lim
@@ -450,21 +467,24 @@ class Particle:
         levels: int = None,
         wall_shade: bool = True,
     ):
-        """Draws a 2D contour plot of the Hamiltonian
+        r"""Draws a 2D contour plot of the Hamiltonian.
 
-        Can also plot the current particle's θ-Pθ drift. Should be False when
-        running with multiple initial conditions.
+        Can also plot the current particle's :math:`\theta-P_\theta` drift. 
+        Should be False when running with multiple initial conditions.
         
-        :param theta_lim: Plot xlim. Must be either [0,2π] or [-π,π]
+        :param theta_lim: Plot xlim. Must be either [0,2π] or [-π,π].
+             Defaults to [-π,π].
         :param psi_lim: If a list is passed, it plots between the
-                2 values relative to ψ_wall. Defaults to "auto".
-        :param plot_drift: Whether or not to plot θ=Ρθ drift on top.
+            2 values relative to :math:`\psi_{wall}`.
+        :param plot_drift: Whether or not to plot :math:`\theta-P_\theta`
+            drift on top.
         :param contour_Phi: Whether or not to add the Φ term in the
-                 energy contour.
+            energy contour.
         :param units: The units in which energies are displayed.
             Must be either "normal", "eV", or "keV".
         :param levels: The number of contour levels. Defaults to Config setting.
-        :param wall_shade: Whether to shade the region ψ/ψ_wall > 1.
+        :param wall_shade: Whether to shade the region 
+            :math:`\psi/\psi_{wall} > 1`.
         """
 
         fig = plt.figure(figsize=(6, 4))
@@ -475,12 +495,7 @@ class Particle:
         self.theta_plot = utils.theta_plot(self.theta, theta_lim)
 
         if plot_drift:
-            ax.scatter(
-                self.theta_plot,
-                self.Ptheta / self.psi_wall,
-                **self.Config.drift_scatter_kw,
-                zorder=2,
-            )
+            self.plot_Ptheta_drift(theta_lim, ax)
 
         if units == "normal":
             label = "E (normalized)"
@@ -514,7 +529,7 @@ class Particle:
             np.linspace(self.theta_min, self.theta_max, grid_density),
             np.linspace(psi_min, psi_max, grid_density),
         )
-        values = self.calcW_grid(theta, psi, self.Pz0, contour_Phi, units)
+        values = self._calcW_grid(theta, psi, self.Pz0, contour_Phi, units)
         span = np.array([values.min(), values.max()])
 
         # Create Figure
@@ -547,7 +562,7 @@ class Particle:
             ax.add_patch(rect)
 
     def plot_orbit_type_point(self):  # Needs checking
-        """Plots the particle point on the μ-Pz (normalized) plane."""
+        r"""Plots the particle point on the :math:`\mu-P_\zeta` (normalized) plane."""
 
         print(self.orbit_x, self.orbit_y)
         plt.plot(self.orbit_x, self.orbit_y, **self.Config.orbit_point_kw)
@@ -559,10 +574,14 @@ class Particle:
     def plot_torus2d(self, percentage : int = 100, truescale : bool = False):
         """Plots the poloidal and toroidal view of the orbit.
         
-        :param percentage: 0-100: the percentage of the orbit to be plotted
+        :param percentage: 0-100: the percentage of the orbit to be plotted.
         :param truescale: Whether or not to construct the torus and orbit
             with the actual units of R and r.
         """
+        
+        if percentage < 1 or percentage > 100:
+            percentage = 100
+            print("Invalid percentage. Plotting the whole thing.")
 
         points = int(np.floor(self.theta.shape[0] * percentage / 100) - 1)
         theta_plot = self.theta[:points]
@@ -628,18 +647,23 @@ class Particle:
                      percentage: int = 100,
                      truescale: bool = False,
                      hd : bool = True,
-                     bold : int = 1,
+                     bold : str = "foo",
                      white_background : bool = True):
-        """Creates a 3d transparent torus and a part of the particle's orbit
+        """Creates a 3d transparent torus and the particle's orbit.
 
-        :param percentage: 0-100: the percentage of the orbit to be plotted
+        :param percentage: 0-100: the percentage of the orbit to be plotted.
         :param truescale: Whether or not to construct the torus and
             orbit with the actual units of R and r.
-        :param hd: High definition image
-        :param bold: The "boldness" level. Takes values between 1-3
+        :param hd: High definition image (dpi = 900).
+        :param bold: The "boldness" level. Levels are "bold", "BOLD", or any.
         :param white_background: Whether to paint the background white or not.
             Overwrites the default plt.style()
         """
+
+        if percentage < 1 or percentage > 100:
+            percentage = 100
+            print("Invalid percentage. Plotting the whole thing.")
+
         points = int(np.floor(self.theta.shape[0] * percentage / 100) - 1)
         psi_plot = self.psi[:points]
         theta_plot = self.theta[:points]
@@ -657,7 +681,7 @@ class Particle:
         if hd:
             dpi = 900
         else:
-            dpi = 300
+            dpi = plt.rcParams["figure.dpi"]
 
         if bold == "bold":
             custom_kw["alpha"] = 0.8

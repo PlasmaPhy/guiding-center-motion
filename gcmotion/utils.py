@@ -120,6 +120,9 @@ def theta_plot(theta, theta_lim=[0, 2 * np.pi]):
         theta_plot = theta_plot - 2 * np.pi * (theta_plot > np.pi)
     else:
         print("theta_lim must be either [0,2*np.pi] or [-np.pi,np.pi].")
+        print("Defaulting to [-π, π].")
+        theta_plot = np.mod(theta, 2 * np.pi)
+        theta_plot = theta_plot - 2 * np.pi * (theta_plot > np.pi)
         return
     return theta_plot
 
