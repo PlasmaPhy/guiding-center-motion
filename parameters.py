@@ -23,6 +23,7 @@ params = {
     "z0"          :   0,
     "Pz0"         :   -0.035,
     "t_eval"       :   np.linspace(0, 10000, 100000) # t0, tf, steps
+
     
 }
 

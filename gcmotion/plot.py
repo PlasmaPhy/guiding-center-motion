@@ -206,7 +206,7 @@ class Plot:
             y_label_config = self.Config.drift_theta_ylabel_kw
 
         elif angle == "zeta":
-            q = self.zeta
+            q = self.z
             P_plot = self.Pzeta
             y_label = rf"$P_\{angle}$"
             y_label_config = self.Config.drift_zeta_ylabel_kw
