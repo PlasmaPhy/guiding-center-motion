@@ -21,4 +21,6 @@ from .particles import Particles
 
 from . import qfactor, efield, parabolas
 
-__all__ = ["Particle", "Particles", "efield", "qfactor", "parabolas"]
+from .animate import animate
+
+__all__ = ["Particle", "Particles", "efield", "qfactor", "parabolas", "animate"]

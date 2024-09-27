@@ -14,6 +14,7 @@ from .qfactor import QFactor
 from .parabolas import OrbitParabolas
 from . import utils
 
+
 class Particle:
     """Initializes a particle, which calculates the orbit,
     orbit type, and can draw several different plots
@@ -22,21 +23,25 @@ class Particle:
     should be changed in the respective ``gcmotion/*.py`` files.
     """
 
-    def __init__(self,
-                 species: str,
-                 mu: float,
-                 init_cond: np.array,
-                 tspan: np.array,
-                 R: float, a: float,
-                 q: QFactor, 
-                 Bfield: list, Efield: ElectricField):
+    def __init__(
+        self,
+        species: str,
+        mu: float,
+        init_cond: np.array,
+        tspan: np.array,
+        R: float,
+        a: float,
+        q: QFactor,
+        Bfield: list,
+        Efield: ElectricField,
+    ):
         r"""Initializes particle and grabs configuration.
 
         :param species: the particle species, used to later set charge and mass
             automatically (from config.yaml)
         :param mu: magnetic moment
         :param init_cond: 1x4 initial conditions array (later, self.init_cond
-            includes 2 more initial conditions, 
+            includes 2 more initial conditions,
             [:math:`\theta_0, \psi_0, \psi_{p0}, \zeta_0, P_{\zeta 0}`])
         :param tspan: The ODE interval, in [:math:`t_0, t_f`, steps]
         :param R: The tokamak's major radius in [m]
@@ -84,7 +89,7 @@ class Particle:
         self.rho0 = self.Pz0 + self.psip0  # Pz0 + psip0
         init_cond.insert(2, self.psip0)
         init_cond.insert(5, self.rho0)
-        self.ode_init = [self.theta0, self.psi0, self.psip0, self.z0, self.rho0] 
+        self.ode_init = [self.theta0, self.psi0, self.psip0, self.z0, self.rho0]
 
         # psi_p > 0.5 warning
         if self.psip_wall >= 0.5:
@@ -113,7 +118,7 @@ class Particle:
         r"""Calculates the orbit of the particle, as well as
         :math:`P_\theta` and :math:`\psi_p`.
 
-        Calculates the time evolution of the dynamical variables 
+        Calculates the time evolution of the dynamical variables
         :math:`\theta, \psi, \zeta, \rho_{||}`. Afterwards, it calculates
         the canonical momenta :math:`P_\theta` and :math:`P_\zeta`, and the
         poloidal flux :math:`\psi_p` through the q factor.
@@ -212,7 +217,7 @@ class Particle:
         self.orbit_x = self.Pz0 / self.psip_wall
         self.orbit_y = self.mu / self.E
         foo = OrbitParabolas(
-            self.R, self.a, self.mu, self.Bfield, self.Efield, self.Volts_to_NU, plot = False
+            self.R, self.a, self.mu, self.Bfield, self.Efield, self.Volts_to_NU, plot=False
         )
 
         # Recalculate y by reconstructing the parabola (there might be a better way
@@ -247,8 +252,7 @@ class Particle:
             return self.orbit_type_str
 
     def _conversion_factors(self):
-        """ Calculates the conversion coeffecient used to convert to lab units.
-        """
+        """Calculates the conversion coeffecient used to convert to lab units."""
         e = self.e  # 1.6*10**(-19)C
         m = self.mass_kg
         B = self.B0  # Tesla
@@ -265,7 +269,7 @@ class Particle:
     def _calcW_grid(self, theta, psi, Pz, contour_Phi=True, units=True):
         """Returns a single value or a grid of the calculated Hamiltonian.
 
-       Only to be called internally, by ``contour_energy()``.
+        Only to be called internally, by ``contour_energy()``.
         """
 
         r = np.sqrt(2 * psi)
@@ -398,7 +402,7 @@ class Particle:
         plt.xlabel("$t$")
 
     def plot_drift(self, theta_lim: list):
-        r"""Draws 2 plots: 1] :math:`\theta-P_\theta` 
+        r"""Draws 2 plots: 1] :math:`\theta-P_\theta`
         and 2] :math:`\zeta-P_\zeta`.
 
         :param theta_lim: Plot xlim. Must be either [0,2π] or [-π,π].
@@ -438,9 +442,9 @@ class Particle:
 
         This method is called internally by ``countour_energy()``
         as well.
-        
+
         :param theta_lim: Plot xlim. Must be either [0,2π] or [-π,π].
-             Defaults to [-π,π].        """
+             Defaults to [-π,π]."""
 
         # Set theta lim. Mods all thetas to 2π
         theta_min, theta_max = theta_lim
@@ -469,9 +473,9 @@ class Particle:
     ):
         r"""Draws a 2D contour plot of the Hamiltonian.
 
-        Can also plot the current particle's :math:`\theta-P_\theta` drift. 
+        Can also plot the current particle's :math:`\theta-P_\theta` drift.
         Should be False when running with multiple initial conditions.
-        
+
         :param theta_lim: Plot xlim. Must be either [0,2π] or [-π,π].
              Defaults to [-π,π].
         :param psi_lim: If a list is passed, it plots between the
@@ -483,7 +487,7 @@ class Particle:
         :param units: The units in which energies are displayed.
             Must be either "normal", "eV", or "keV".
         :param levels: The number of contour levels. Defaults to Config setting.
-        :param wall_shade: Whether to shade the region 
+        :param wall_shade: Whether to shade the region
             :math:`\psi/\psi_{wall} > 1`.
         """
 
@@ -571,42 +575,54 @@ class Particle:
         plt.xlabel(r"$P_\zeta/\psi_p$")
         # plt.ylim(max(plt.gca().get_ylim()[1], 1.1 * self.orbit_y))
 
-    def plot_torus2d(self, percentage : int = 100, truescale : bool = False):
-        """Plots the poloidal and toroidal view of the orbit.
-        
-        :param percentage: 0-100: the percentage of the orbit to be plotted.
-        :param truescale: Whether or not to construct the torus and orbit
-            with the actual units of R and r.
-        """
-        
+    def toruspoints(self, percentage: int = 100, truescale: bool = False):
+
         if percentage < 1 or percentage > 100:
             percentage = 100
             print("Invalid percentage. Plotting the whole thing.")
 
         points = int(np.floor(self.theta.shape[0] * percentage / 100) - 1)
-        theta_plot = self.theta[:points]
-        psi_plot = self.psi[:points]
-        z_plot = self.z[:points]
+        self.torus_theta = self.theta[:points]
+        self.torus_psi = self.psi[:points]
+        self.torus_z = self.z[:points]
+        self.r_true = self.R * np.sqrt(2 * self.torus_psi)
 
         # Torus shape parameters
         self.r_span = [
-            np.sqrt(2 * psi_plot.min()),
-            np.sqrt(2 * psi_plot.max()),
+            np.sqrt(2 * self.torus_psi.min()),
+            np.sqrt(2 * self.torus_psi.max()),
         ]
-        self.Rfake = 2 * (self.r_span[1] + self.r_span[0]) / 2
 
         if truescale:
-            Rtorus = self.R
-            rtorus = self.a
+            self.Rtorus = self.R
+            self.rtorus = self.a
         else:
-            Rtorus = self.Rfake
-            rtorus = 1.1 * np.sqrt(2 * psi_plot.max())
+            self.Rtorus = 2 * (self.r_span[1] + self.r_span[0]) / 2
+            self.rtorus = 1.1 * np.sqrt(2 * self.torus_psi.max())
 
-        self.Rin = Rtorus - rtorus
-        self.Rout = Rtorus + rtorus
+        self.r = self.R * np.sqrt(2 * self.torus_psi)
 
-        r_plot1 = np.sqrt(2 * psi_plot)
-        r_plot2 = Rtorus + np.sqrt(2 * psi_plot) * np.cos(theta_plot)
+        # Cartesian (y and z are switched here)
+        self.cartx = (self.R + self.r * np.cos(self.torus_theta)) * np.cos(self.torus_z)
+        self.carty = (self.R + self.r * np.cos(self.torus_theta)) * np.sin(self.torus_z)
+        self.cartz = np.sin(self.torus_theta)
+
+    def plot_torus2d(self, percentage: int = 100, truescale: bool = False):
+        """Plots the poloidal and toroidal view of the orbit.
+
+        :param percentage: 0-100: the percentage of the orbit to be plotted.
+        :param truescale: Whether or not to construct the torus and orbit
+            with the actual units of R and r.
+        """
+
+        # Configure torus dimensions and orbit and store internally
+        self.toruspoints(percentage=percentage, truescale=truescale)
+
+        self.Rin = self.Rtorus - self.rtorus
+        self.Rout = self.Rtorus + self.rtorus
+
+        r_plot1 = self.r_true
+        r_plot2 = self.Rtorus + self.r_true * np.cos(self.torus_theta)
 
         fig, ax = plt.subplots(1, 2, figsize=(8, 5), subplot_kw={"projection": "polar"})
         fig.tight_layout()
@@ -614,23 +630,23 @@ class Particle:
         # Torus Walls
         ax[0].scatter(
             np.linspace(0, 2 * np.pi, 1000),
-            1.05 * self.r_span[1] * np.ones(1000),
+            self.a * np.ones(1000),
             **self.Config.torus2d_wall_kw,
         )
         ax[1].scatter(
             np.linspace(0, 2 * np.pi, 1000),
-            0.90 * self.Rin * np.ones(1000),
+            self.Rin * np.ones(1000),
             **self.Config.torus2d_wall_kw,
         )
         ax[1].scatter(
             np.linspace(0, 2 * np.pi, 1000),
-            1.05 * self.Rout * np.ones(1000),
+            self.Rout * np.ones(1000),
             **self.Config.torus2d_wall_kw,
         )
 
         # Orbits
-        ax[0].scatter(theta_plot, r_plot1, **self.Config.torus2d_orbit_kw, zorder=-1)
-        ax[1].scatter(z_plot, r_plot2, **self.Config.torus2d_orbit_kw, zorder=-1)
+        ax[0].scatter(self.torus_theta, r_plot1, **self.Config.torus2d_orbit_kw, zorder=-1)
+        ax[1].scatter(self.torus_z, r_plot2, **self.Config.torus2d_orbit_kw, zorder=-1)
 
         ax[0].set_ylim(bottom=0)
         ax[1].set_ylim(bottom=0)
@@ -643,12 +659,14 @@ class Particle:
         ax[0].tick_params(labelsize=8)
         ax[1].tick_params(labelsize=8)
 
-    def plot_torus3d(self,
-                     percentage: int = 100,
-                     truescale: bool = False,
-                     hd : bool = True,
-                     bold : str = "foo",
-                     white_background : bool = True):
+    def plot_torus3d(
+        self,
+        percentage: int = 100,
+        truescale: bool = False,
+        hd: bool = True,
+        bold: str = "foo",
+        white_background: bool = True,
+    ):
         """Creates a 3d transparent torus and the particle's orbit.
 
         :param percentage: 0-100: the percentage of the orbit to be plotted.
@@ -660,21 +678,8 @@ class Particle:
             Overwrites the default plt.style()
         """
 
-        if percentage < 1 or percentage > 100:
-            percentage = 100
-            print("Invalid percentage. Plotting the whole thing.")
-
-        points = int(np.floor(self.theta.shape[0] * percentage / 100) - 1)
-        psi_plot = self.psi[:points]
-        theta_plot = self.theta[:points]
-        z_plot = self.z[:points]
-
-        if truescale:
-            Rtorus = self.R
-            rtorus = self.a
-        else:
-            Rtorus = self.Rfake
-            rtorus = 1.1 * np.sqrt(2 * psi_plot.max())
+        # Configure torus dimensions and orbit and store internally
+        self.toruspoints(percentage=percentage, truescale=truescale)
 
         custom_kw = self.Config.torus3d_orbit_kw.copy()
 
@@ -698,16 +703,16 @@ class Particle:
             custom_kw["color"] = "w"
 
         # Cartesian
-        x = (Rtorus + np.sqrt(2 * psi_plot) * np.cos(theta_plot)) * np.cos(z_plot)
-        y = (Rtorus + np.sqrt(2 * psi_plot) * np.cos(theta_plot)) * np.sin(z_plot)
-        z = np.sin(theta_plot)
+        x = (self.Rtorus + self.r_true * np.cos(self.torus_theta)) * np.cos(self.torus_z)
+        y = (self.Rtorus + self.r_true * np.cos(self.torus_theta)) * np.sin(self.torus_z)
+        z = np.sin(self.torus_theta)
 
         # Torus Surface
         theta_torus = np.linspace(0, 2 * np.pi, 400)
         z_torus = theta_torus
         theta_torus, z_torus = np.meshgrid(theta_torus, z_torus)
-        x_torus = (Rtorus + rtorus * np.cos(theta_torus)) * np.cos(z_torus)
-        y_torus = (Rtorus + rtorus * np.cos(theta_torus)) * np.sin(z_torus)
+        x_torus = (self.Rtorus + self.rtorus * np.cos(theta_torus)) * np.cos(z_torus)
+        y_torus = (self.Rtorus + self.rtorus * np.cos(theta_torus)) * np.sin(z_torus)
         z_torus = np.sin(theta_torus)
 
         fig, ax = plt.subplots(
@@ -734,3 +739,8 @@ class Particle:
         ax.set_xlim3d(0.8 * x_torus.min(), 0.8 * x_torus.max())
         ax.set_ylim3d(0.8 * y_torus.min(), 0.8 * y_torus.max())
         ax.set_zlim3d(-3, 3)
+
+    def animate(self, percentage: int = 100, truescale: bool = False):
+
+        # Configure torus dimensions and orbit and store internally
+        self.toruspoints(percentage=percentage, truescale=truescale)
