@@ -49,3 +49,9 @@ torus3d_orbit_color: "red"
 torus3d_orbit_alpha: 0.6
 torus3d_orbit_size: .2
 
+# Animation
+torus_color: "cyan"
+vaxis_color: "blue"
+particle_color: "red"
+
+defaults: {"min_step": 0.01, "seconds": 60}

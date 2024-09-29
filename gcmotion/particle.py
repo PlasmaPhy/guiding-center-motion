@@ -585,26 +585,24 @@ class Particle:
         self.torus_theta = self.theta[:points]
         self.torus_psi = self.psi[:points]
         self.torus_z = self.z[:points]
-        self.r_true = self.R * np.sqrt(2 * self.torus_psi)
-
+        self.r_torus = np.sqrt(2 * self.torus_psi)
         # Torus shape parameters
-        self.r_span = [
-            np.sqrt(2 * self.torus_psi.min()),
-            np.sqrt(2 * self.torus_psi.max()),
-        ]
+        self.r_span = [self.r_torus.min(), self.r_torus.max()]
 
         if truescale:
             self.Rtorus = self.R
-            self.rtorus = self.a
+            self.atorus = self.a
+            self.r_torus *= self.R
         else:
-            self.Rtorus = 2 * (self.r_span[1] + self.r_span[0]) / 2
-            self.rtorus = 1.1 * np.sqrt(2 * self.torus_psi.max())
+            self.Rtorus = self.r_span[1] + self.r_span[0]
+            self.atorus = 1.1 * self.r_span[1]  # 1.1 * (self.r_span[1] - self.r_span[0]) / 2
+            # self.r_torus *= self.Rtorus
 
-        self.r = self.R * np.sqrt(2 * self.torus_psi)
+        # self.r_torus *= self.R
 
-        # Cartesian (y and z are switched here)
-        self.cartx = (self.R + self.r * np.cos(self.torus_theta)) * np.cos(self.torus_z)
-        self.carty = (self.R + self.r * np.cos(self.torus_theta)) * np.sin(self.torus_z)
+        # Cartesian (y and z are switched in vpython!)
+        self.cartx = (self.Rtorus + self.atorus * np.cos(self.torus_theta)) * np.cos(self.torus_z)
+        self.carty = (self.Rtorus + self.atorus * np.cos(self.torus_theta)) * np.sin(self.torus_z)
         self.cartz = np.sin(self.torus_theta)
 
     def plot_torus2d(self, percentage: int = 100, truescale: bool = False):
@@ -618,11 +616,11 @@ class Particle:
         # Configure torus dimensions and orbit and store internally
         self.toruspoints(percentage=percentage, truescale=truescale)
 
-        self.Rin = self.Rtorus - self.rtorus
-        self.Rout = self.Rtorus + self.rtorus
+        self.Rin = self.Rtorus - self.atorus
+        self.Rout = self.Rtorus + self.atorus
 
-        r_plot1 = self.r_true
-        r_plot2 = self.Rtorus + self.r_true * np.cos(self.torus_theta)
+        r_plot1 = self.r_torus
+        r_plot2 = self.Rtorus + self.r_torus * np.cos(self.torus_theta)
 
         fig, ax = plt.subplots(1, 2, figsize=(8, 5), subplot_kw={"projection": "polar"})
         fig.tight_layout()
@@ -630,7 +628,7 @@ class Particle:
         # Torus Walls
         ax[0].scatter(
             np.linspace(0, 2 * np.pi, 1000),
-            self.a * np.ones(1000),
+            self.atorus * np.ones(1000),
             **self.Config.torus2d_wall_kw,
         )
         ax[1].scatter(
@@ -652,7 +650,7 @@ class Particle:
         ax[1].set_ylim(bottom=0)
         ax[0].grid(False)
         ax[1].grid(False)
-        ax[0].set_title("Toroidal View", c="b")
+        ax[0].set_title("Poloidal View", c="b")
         ax[1].set_title("Top-Down View", c="b")
         ax[0].set_xlabel(r"$\sqrt{2\psi} - \theta$")
         ax[1].set_xlabel(r"$\sqrt{2\psi}\cos\theta - \zeta$")
@@ -703,17 +701,17 @@ class Particle:
             custom_kw["color"] = "w"
 
         # Cartesian
-        x = (self.Rtorus + self.r_true * np.cos(self.torus_theta)) * np.cos(self.torus_z)
-        y = (self.Rtorus + self.r_true * np.cos(self.torus_theta)) * np.sin(self.torus_z)
+        x = (self.Rtorus + self.r_torus * np.cos(self.torus_theta)) * np.cos(self.torus_z)
+        y = (self.Rtorus + self.r_torus * np.cos(self.torus_theta)) * np.sin(self.torus_z)
         z = np.sin(self.torus_theta)
 
         # Torus Surface
         theta_torus = np.linspace(0, 2 * np.pi, 400)
         z_torus = theta_torus
         theta_torus, z_torus = np.meshgrid(theta_torus, z_torus)
-        x_torus = (self.Rtorus + self.rtorus * np.cos(theta_torus)) * np.cos(z_torus)
-        y_torus = (self.Rtorus + self.rtorus * np.cos(theta_torus)) * np.sin(z_torus)
-        z_torus = np.sin(theta_torus)
+        x_torus_wall = (self.Rtorus + self.atorus * np.cos(theta_torus)) * np.cos(z_torus)
+        y_torus_wall = (self.Rtorus + self.atorus * np.cos(theta_torus)) * np.sin(z_torus)
+        z_torus_wall = np.sin(theta_torus)
 
         fig, ax = plt.subplots(
             dpi=dpi,
@@ -725,9 +723,9 @@ class Particle:
         ax.plot([0, 0], [0, 0], [-8, 6], color="b", alpha=0.4, linewidth=0.5)
         # Plot wall surface
         ax.plot_surface(
-            x_torus,
-            y_torus,
-            z_torus,
+            x_torus_wall,
+            y_torus_wall,
+            z_torus_wall,
             rstride=3,
             cstride=3,
             **self.Config.torus3d_wall_kw,
@@ -736,8 +734,8 @@ class Particle:
         ax.set_facecolor(bg_color)
         ax.plot(x, y, z, **custom_kw, zorder=1)
         ax.set_box_aspect((1, 1, 0.5), zoom=1.1)
-        ax.set_xlim3d(0.8 * x_torus.min(), 0.8 * x_torus.max())
-        ax.set_ylim3d(0.8 * y_torus.min(), 0.8 * y_torus.max())
+        ax.set_xlim3d(0.8 * x_torus_wall.min(), 0.8 * x_torus_wall.max())
+        ax.set_ylim3d(0.8 * y_torus_wall.min(), 0.8 * y_torus_wall.max())
         ax.set_zlim3d(-3, 3)
 
     def animate(self, percentage: int = 100, truescale: bool = False):

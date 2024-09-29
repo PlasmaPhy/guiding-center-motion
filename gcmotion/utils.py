@@ -104,6 +104,12 @@ class ConfigFile:
         self.contour_levels_default = self.config["contour_levels_default"]
         self.contour_cmap = self.config["contour_cmap"]
 
+        # Animation
+        self.torus_color = self.config["torus_color"]
+        self.vaxis_color = self.config["vaxis_color"]
+        self.particle_color = self.config["particle_color"]
+        self.defaults = self.config["defaults"]
+
     def __getitem__(self, kw):
         """Makes object subscriptable
 
@@ -125,6 +131,7 @@ def theta_plot(theta, theta_lim=[0, 2 * np.pi]):
         theta_plot = theta_plot - 2 * np.pi * (theta_plot > np.pi)
         return
     return theta_plot
+
 
 def reload():
     for mod in [mod for name, mod in sys.modules.items() if "gcmotion" in name]:
