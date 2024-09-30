@@ -582,28 +582,24 @@ class Particle:
             print("Invalid percentage. Plotting the whole thing.")
 
         points = int(np.floor(self.theta.shape[0] * percentage / 100) - 1)
-        self.torus_theta = self.theta[:points]
-        self.torus_psi = self.psi[:points]
-        self.torus_z = self.z[:points]
-        self.r_torus = np.sqrt(2 * self.torus_psi)
+        self.theta_torus = self.theta[:points]
+        self.psi_torus = self.psi[:points]  # / self.psi_wall
+        self.z_torus = self.z[:points]
+        self.r_torus = np.sqrt(2 * self.psi_torus) * self.R  # Since r is normalized
+
         # Torus shape parameters
         self.r_span = [self.r_torus.min(), self.r_torus.max()]
 
         if truescale:
             self.Rtorus = self.R
             self.atorus = self.a
-            self.r_torus *= self.R
+            # self.r_torus *= self.atorus
         else:
-            self.Rtorus = self.r_span[1] + self.r_span[0]
-            self.atorus = 1.1 * self.r_span[1]  # 1.1 * (self.r_span[1] - self.r_span[0]) / 2
-            # self.r_torus *= self.Rtorus
+            self.Rtorus = (self.r_span[1] + self.r_span[0]) / 2
+            self.atorus = 1.1 * self.Rtorus / 2
+            self.r_torus *= 1 / 2
 
-        # self.r_torus *= self.R
-
-        # Cartesian (y and z are switched in vpython!)
-        self.cartx = (self.Rtorus + self.atorus * np.cos(self.torus_theta)) * np.cos(self.torus_z)
-        self.carty = (self.Rtorus + self.atorus * np.cos(self.torus_theta)) * np.sin(self.torus_z)
-        self.cartz = np.sin(self.torus_theta)
+        return self.Rtorus, self.atorus, self.r_torus, self.theta_torus, self.z_torus
 
     def plot_torus2d(self, percentage: int = 100, truescale: bool = False):
         """Plots the poloidal and toroidal view of the orbit.
@@ -620,7 +616,7 @@ class Particle:
         self.Rout = self.Rtorus + self.atorus
 
         r_plot1 = self.r_torus
-        r_plot2 = self.Rtorus + self.r_torus * np.cos(self.torus_theta)
+        r_plot2 = self.Rtorus + self.r_torus * np.cos(self.theta_torus)
 
         fig, ax = plt.subplots(1, 2, figsize=(8, 5), subplot_kw={"projection": "polar"})
         fig.tight_layout()
@@ -643,8 +639,8 @@ class Particle:
         )
 
         # Orbits
-        ax[0].scatter(self.torus_theta, r_plot1, **self.Config.torus2d_orbit_kw, zorder=-1)
-        ax[1].scatter(self.torus_z, r_plot2, **self.Config.torus2d_orbit_kw, zorder=-1)
+        ax[0].scatter(self.theta_torus, r_plot1, **self.Config.torus2d_orbit_kw, zorder=-1)
+        ax[1].scatter(self.z_torus, r_plot2, **self.Config.torus2d_orbit_kw, zorder=-1)
 
         ax[0].set_ylim(bottom=0)
         ax[1].set_ylim(bottom=0)
@@ -701,9 +697,9 @@ class Particle:
             custom_kw["color"] = "w"
 
         # Cartesian
-        x = (self.Rtorus + self.r_torus * np.cos(self.torus_theta)) * np.cos(self.torus_z)
-        y = (self.Rtorus + self.r_torus * np.cos(self.torus_theta)) * np.sin(self.torus_z)
-        z = np.sin(self.torus_theta)
+        x = (self.Rtorus + self.r_torus * np.cos(self.theta_torus)) * np.cos(self.z_torus)
+        y = (self.Rtorus + self.r_torus * np.cos(self.theta_torus)) * np.sin(self.z_torus)
+        z = self.r_torus * np.sin(self.theta_torus)
 
         # Torus Surface
         theta_torus = np.linspace(0, 2 * np.pi, 400)
@@ -711,7 +707,7 @@ class Particle:
         theta_torus, z_torus = np.meshgrid(theta_torus, z_torus)
         x_torus_wall = (self.Rtorus + self.atorus * np.cos(theta_torus)) * np.cos(z_torus)
         y_torus_wall = (self.Rtorus + self.atorus * np.cos(theta_torus)) * np.sin(z_torus)
-        z_torus_wall = np.sin(theta_torus)
+        z_torus_wall = self.atorus * np.sin(theta_torus)
 
         fig, ax = plt.subplots(
             dpi=dpi,
@@ -737,8 +733,3 @@ class Particle:
         ax.set_xlim3d(0.8 * x_torus_wall.min(), 0.8 * x_torus_wall.max())
         ax.set_ylim3d(0.8 * y_torus_wall.min(), 0.8 * y_torus_wall.max())
         ax.set_zlim3d(-3, 3)
-
-    def animate(self, percentage: int = 100, truescale: bool = False):
-
-        # Configure torus dimensions and orbit and store internally
-        self.toruspoints(percentage=percentage, truescale=truescale)

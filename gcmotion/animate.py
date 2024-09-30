@@ -17,37 +17,37 @@ def animate(cwp, params: dict = {}):
 
 def run(cwp, params: dict = {}):
 
-    cwp.toruspoints(percentage=100, truescale=True)
-    R = cwp.Rtorus
-    a = cwp.atorus
-    rate = 30
-    running = 1
-
     # Grab configuration
     Config = cwp.Config
     defaults = Config.defaults
     print(Config.torus_color)
 
-    if "min_step" in params:
-        min_step = R * params["min_step"]
-    else:
-        min_step = R * defaults["min_step"]
+    for key in defaults.keys():
+        if key not in params:
+            params[key] = defaults[key]
 
-    if "seconds" in params:
-        seconds = params["seconds"]
-    else:
-        seconds = defaults["seconds"]
+    percentage = params["percentage"]
+    truescale = params["truescale"]
+    min_step = params["min_step"]
+    seconds = params["seconds"]
+
+    R, a, r_torus, theta_torus, z_torus = cwp.toruspoints(
+        percentage=percentage, truescale=truescale
+    )
+    # Cartesian (y and z are switched in vpython!)
+    x = (R + r_torus * np.cos(theta_torus)) * np.cos(z_torus)
+    z = (R + r_torus * np.cos(theta_torus)) * np.sin(z_torus)
+    y = r_torus * np.sin(theta_torus)
+    rate = 30
+    running = 1
 
     print(f"Minimum step size:\t{np.around(min_step,5)}.")
     print(f"Animation duration:\t{seconds} seconds.")
+    print(R, a)
 
     def dist_compress(min_step: None):
 
-        # Grab particle's data
-        x = cwp.cartx
-        y = cwp.cartz
-        z = cwp.carty
-        n = len(cwp.tspan)  # number of steps
+        n = len(x)  # number of steps
 
         step = np.sqrt((x[1:] - x[:-1]) ** 2 + (y[1:] - y[:-1]) ** 2 + (z[1:] - z[:-1]) ** 2)
 
@@ -89,16 +89,16 @@ def run(cwp, params: dict = {}):
         height = 850
         scene = vp.canvas(width=width, height=height, background=vp.color.white)
         scene.userpan = False
-        scene.center = vp.vector(0, -2.5, 0)
+        scene.center = vp.vector(0, -0.55 * R, 0)
 
         # Vertical axis
         height = 1 * (2 * R)
         pos = [vp.vector(0, -height / 2, 0), +vp.vector(0, height / 2, 0)]
-        vaxis = vp.curve(pos=pos, color=eval("vp.color." + Config.vaxis_color), radius=0.03)
+        vaxis = vp.curve(pos=pos, color=eval("vp.color." + Config.vaxis_color), radius=0.004 * R)
 
         # Torus walls
-        shape = vp.shapes.circle(radius=a, np=60)
-        path = vp.paths.circle(radius=R, np=60)
+        shape = vp.shapes.circle(radius=float(a), np=60)
+        path = vp.paths.circle(radius=float(R), np=60)
         torus = vp.extrusion(
             pos=vp.vector(0, 0, 0),
             shape=shape,

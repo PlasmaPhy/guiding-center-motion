@@ -54,4 +54,5 @@ torus_color: "cyan"
 vaxis_color: "blue"
 particle_color: "red"
 
-defaults: {"min_step": 0.01, "seconds": 60}
+defaults: {"percentage": 100, "truescale": True,
+          "min_step": 0.01, "seconds": 60}
