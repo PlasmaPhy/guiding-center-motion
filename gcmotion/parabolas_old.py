@@ -1,43 +1,97 @@
+"""
+Constructs the parabolas that classify each orbit type
+======================================================
+
+``OrbitParabolas`` does all the work internally.
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 from .efield import ElectricField
 from . import utils
 
 
-class Construct:
+class OrbitParabolas:
+    r"""
+    Constructs 3 parabolas  :math:`ax^2 + bx + c = 0`, and finds the special points.
 
-    def __init__(self, cwp):
-        # Set cwp's attributes as own
-        self.__dict__ = dict(cwp.__dict__)
-        self.setup()
+    Both x and y are normalized, :math:`x = P_\zeta/\psi_{p,wall}` and
+    :math:`y=\mu B_0/E.`
 
-    def setup(self):
+    .. note::
+        To change the parabolas, go to ``__init__()`` and change the constants between
+        the dashed comments.
+    """
 
-        mu, psi_wall, g = self.mu, self.psi_wall, self.g
+    def __init__(
+        self,
+        R: float,
+        a: float,
+        mu: float,
+        Bfield: list,
+        Efield: ElectricField,
+        Volts_to_NU: float,
+        plot: bool = True,
+    ):
+        """Constructs the 3 orbit type parabolas and calculates the special points.
 
-        Bmin = 1 - np.sqrt(2 * psi_wall)  # "Bmin occurs at psip_wall, θ = 0"
-        Bmax = 1 + np.sqrt(2 * psi_wall)  # "Bmax occurs at psip_wall, θ = π"
+        :param R: The tokamak's major radius in [m]
+        :param a: The tokamak's minor radius in [m]
+        :param mu: magnetic moment
+        :param B: The toroidal and poloidal currents, and the field
+            magnitude (in [T]) of the magnetic field B, as in
+            :math:`[g, I, B_0]`.
+        :param E: Electric Field Object that supports query methods for getting
+            values for the field itself and some derivatives of
+            its potential.
+        :param Volts_to_NU: the conversion factor. Must be passed as cwp.Volts_to_NU
+            since it is species-dependant.
+        :param plot: Whether or not to plot the parabolas. Must be specified since
+            the constructed parabolas are also used internally to calculate the
+            obrit type.
+        """
+        # Grab configuration
+        self.Config = utils.ConfigFile()
 
+        self.R = R
+        self.a = a
+        self.mu = mu
+        self.I, self.g, self.B0 = Bfield
+        self.Efield = Efield
+        self.r_wall = self.a / self.R  # normalized to R
+        self.psi_wall = (self.r_wall) ** 2 / 2
+        self.Volts_to_NU = Volts_to_NU
+
+        self.B0 = 1
+        self.Bmin = self.B0 * (1 - np.sqrt(2 * self.psi_wall))  # "Bmin occurs at psip_wall, θ = 0"
+        self.Bmax = self.B0 * (1 + np.sqrt(2 * self.psi_wall))  # "Bmax occurs at psip_wall, θ = π"
+
+        # Electric Potential Components:
+        self.Phi0 = self.Efield.Phi_of_psi(0) * self.Volts_to_NU
+        self.Phi_wall = self.Efield.Phi_of_psi(self.psi_wall) * self.Volts_to_NU
+        m = 1
         # Parabolas constants [a, b, c]
         # __________________________________________________________
         # Top left
-        E1 = mu * Bmin
+        self.E1 = mu * self.Bmin + self.Phi_wall
         abc1 = [
-            -Bmin * psi_wall**2 / (2 * g**2 * E1),
-            -Bmin * psi_wall**2 / (g**2 * E1),
-            -Bmin * psi_wall**2 / (2 * g**2 * E1) + 1 / Bmin,
+            -self.B0 * self.Bmin * self.psi_wall**2 / (2 * self.g**2 * self.E1 * m),
+            -self.B0 * self.Bmin * self.psi_wall**2 / (self.g**2 * self.E1 * m),
+            -self.B0 * self.Bmin * self.psi_wall**2 / (2 * self.g**2 * self.E1 * m)
+            + self.B0 / self.Bmin,
         ]
         # Bottom left
-        E2 = mu * Bmax
+        self.E2 = mu * self.Bmax + self.Phi_wall
         abc2 = [
-            -Bmax * psi_wall**2 / (2 * g**2 * E2),
-            -Bmax * psi_wall**2 / (g**2 * E2),
-            -Bmax * psi_wall**2 / (2 * g**2 * E2) + 1 / Bmax,
+            -self.B0 * self.Bmax * self.psi_wall**2 / (2 * self.g**2 * self.E2 * m),
+            -self.B0 * self.Bmax * self.psi_wall**2 / (self.g**2 * self.E2 * m),
+            -self.B0 * self.Bmax * self.psi_wall**2 / (2 * self.g**2 * self.E2 * m)
+            + self.B0 / self.Bmax,
         ]
         # Right (Magnetic Axis)
-        E3 = mu
+        self.E3 = mu * self.B0 + self.Phi0
         abc3 = [
-            -(psi_wall**2) / (2 * g**2 * E3),
+            -(self.B0**2) * self.psi_wall**2 / (2 * self.g**2 * self.E3 * m),
             0,
             1,
         ]
@@ -46,7 +100,7 @@ class Construct:
         # Calculate all x-intercepts and use the 2 outermost
         self.abcs = [abc1, abc2, abc3]
 
-        x_intercepts = np.array(3)
+        x_intercepts = np.array([])
         self.par1 = Parabola(self.abcs[0])  # Top Left
         self.par2 = Parabola(self.abcs[1])  # Bottom Left
         self.par3 = Parabola(self.abcs[2])  # Right
@@ -72,12 +126,13 @@ class Construct:
             ]
         )
 
-        self.xlim = [1.02 * x_intercepts.min(), 1.02 * x_intercepts.max()]
+        self.xlim = [x_intercepts.min(), x_intercepts.max()]
         self.ylim = [0, 1.1 * extremums.max()]
 
         # Run
-        self._plot_parabolas()
-        self._plot_tp_boundary()
+        if plot:
+            self._plot_parabolas()
+            self._plot_tp_boundary()
 
     def _plot_parabolas(self):
         """Plots the 3 parabolas."""
@@ -134,8 +189,13 @@ class Construct:
         plt.plot(x, y1_plot, **self.Config.parabolas_dashed_plot_kw)
         plt.plot(x, y2_plot, **self.Config.parabolas_dashed_plot_kw)
 
+    def get_abcs(self):
+        """Returns the consants of the 3 parabolas as [[...],[...],[...]]
+        For sanity check and debugging, really.
+        """
+        return self.abcs
 
-# ______________________
+
 class Parabola:
     """Creates a general-form parabola :math:`ax^2 + bx + c = 0`,
     calculates intercepts and extremums.

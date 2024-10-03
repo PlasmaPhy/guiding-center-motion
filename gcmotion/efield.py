@@ -50,9 +50,10 @@ from .qfactor import QFactor
 from math import sqrt, exp
 from abc import ABC, abstractmethod
 
+
 class ElectricField(ABC):
     """Electric field base class
-        
+
     .. note::
         This class does nothing, it is only a template.
     """
@@ -63,10 +64,10 @@ class ElectricField(ABC):
     @abstractmethod
     def Phi_der(self, psi: float) -> tuple[float, float]:
         r"""Derivatives of Φ(ψ) with respect to :math:`\psi_p, \\theta` in [V].
-        
+
         Intended for use only inside the ODE solver. Returns the potential
         in [V], so the normalisation is done inside the solver.
-        
+
         :param psi: The magnetic flux surface.
         :return: List containing the calculated derivatives as floats
         """
@@ -75,9 +76,9 @@ class ElectricField(ABC):
     @abstractmethod
     def Er_of_psi(self, psi: np.ndarray) -> np.ndarray:
         """Calculates radial Electric field component in [V/m] from ψ.
-        
+
         Used for plotting the Electric field
-        
+
         :param psi: The ψ values.
         :returns: Numpy array with calculated E values.
         """
@@ -95,7 +96,9 @@ class ElectricField(ABC):
         """
         pass
 
-#=======================================================
+
+# =======================================================
+
 
 class Nofield(ElectricField):
     """Initializes an electric field of 0
@@ -103,11 +106,11 @@ class Nofield(ElectricField):
     Exists to avoid compatibility issues.
     """
 
-    def __init__():
+    def __init__(self):
         """Not used."""
         return
 
-    def Phi_der(self, _psi):
+    def Phi_der(self, psi):
         return (0, 0)
 
     def Er_of_psi(self, psi):
@@ -120,8 +123,7 @@ class Nofield(ElectricField):
 class Parabolic(ElectricField):
     """Initializes an electric field of the form: :math:`E(r) = ar^2 + b` (BETA)"""
 
-    def __init__(self,
-                R: float, a:float, q: QFactor, alpha: float = 1, beta: float = 0):
+    def __init__(self, R: float, a: float, q: QFactor, alpha: float = 1, beta: float = 0):
         """Parameters initialization.
 
         :param R: The tokamak's major radius.
@@ -159,9 +161,15 @@ class Radial(ElectricField):
     :math:`E(r) = -E_a\exp\bigg[-\dfrac{(r-r_a)^2}{r_w^2})\bigg]`
     """
 
-    def __init__(self, 
-                R: float, a: float, q: QFactor, 
-                Ea: float = 75000, minimum: float = 0.7, waist_width: float = 10):
+    def __init__(
+        self,
+        R: float,
+        a: float,
+        q: QFactor,
+        Ea: float = 75000,
+        minimum: float = 0.7,
+        waist_width: float = 10,
+    ):
         r"""Parameters initialization.
 
         :param R: The tokamak's major radius.
@@ -169,7 +177,7 @@ class Radial(ElectricField):
         :param q: q factor profile.
         :param Ea: The Electric field magnitude. (Optional, defaults to 75000)
         :param beta: The constant coefficient. (Optional, defaults to 0)
-        :param minimum: The Electric field's minimum point with respect to 
+        :param minimum: The Electric field's minimum point with respect to
             :math:`\psi_{wall}`.
         :param waist_width: The Electric field's waist width, defined as:
             :math:`r_w = \dfrac{a}{\\text{waste width}}`
@@ -183,7 +191,7 @@ class Radial(ElectricField):
         self.waist_width = waist_width
 
         self.Ea = Ea  # V/m
-        self.ra = self.minimum * self.r_wall # Defines the minimum point
+        self.ra = self.minimum * self.r_wall  # Defines the minimum point
         self.Efield_min = self.ra**2 / 2
         self.rw = self.r_wall / self.waist_width  # waist, not wall
         self.psia = self.ra**2 / 2

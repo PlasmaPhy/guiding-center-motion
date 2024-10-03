@@ -1,6 +1,7 @@
 import multiprocessing as mp
 import vpython as vp
 import numpy as np
+from scipy.signal import argrelextrema as ex
 from tqdm import tqdm
 
 spawn_ctx = mp.get_context("spawn")
@@ -39,11 +40,10 @@ def run(cwp, params: dict = {}):
     z = (R + r_torus * np.cos(theta_torus)) * np.sin(z_torus)
     y = r_torus * np.sin(theta_torus)
     rate = 30
-    running = 1
+    running = 0
 
     print(f"Minimum step size:\t{np.around(min_step,5)}.")
     print(f"Animation duration:\t{seconds} seconds.")
-    print(R, a)
 
     def dist_compress(min_step: None):
 
@@ -82,7 +82,7 @@ def run(cwp, params: dict = {}):
         print(f"Rate = {rate}/s")
         return rate
 
-    def _setup_torus(truescale: bool = True):
+    def _setup_scene(truescale: bool = True):
 
         # Canvas
         width = 1920
@@ -108,6 +108,42 @@ def run(cwp, params: dict = {}):
         )
 
         return scene, vaxis, torus
+
+    def _flux_surface():
+
+        # Get theta of 1 period
+        if cwp.t_or_p == "Trapped":
+            span = ex(cwp.theta, np.greater)[0][:2]
+            theta = cwp.theta[span[0] : span[1]]
+
+        if cwp.t_or_p == "Passing":
+            condition = (np.abs(cwp.theta) > cwp.theta0) & (
+                np.abs(cwp.theta) < cwp.theta0 + 2 * np.pi
+            )
+            theta = cwp.theta[condition]
+
+        r = r_torus[: theta.shape[0]]
+        xflux = r * np.cos(theta)
+        zflux = r * np.sin(theta)
+        zero = np.zeros(theta.shape[0])
+        points = np.vstack((xflux, zflux, zero)).T
+        vectors = []
+
+        for i in range(len(points)):
+            vectors.append(vp.vector(points[i, 0], points[i, 1], points[i, 2]))
+
+        shape = np.vstack((xflux, zflux)).T.tolist()
+        shape.append(shape[0])
+        path = vp.paths.circle(radius=float(R), np=60)
+        flux_surface = vp.extrusion(
+            pos=vp.vector(0, 0, 0),
+            shape=shape,
+            path=path,
+            color=eval("vp.color." + Config.flux_surface_color),
+            opacity=Config.flux_surface_opacity,
+        )
+
+        return flux_surface
 
     def _setup_particle():
 
@@ -159,7 +195,8 @@ def run(cwp, params: dict = {}):
 
     x, y, z = dist_compress(min_step)
     rate = adjust_rate(x, seconds=seconds)
-    scene, vaxis, torus = _setup_torus()
+    scene, vaxis, torus = _setup_scene()
+    # flux = _flux_surface()
     p = _setup_particle()
     buttons.setup()
 

@@ -11,7 +11,11 @@ p_mass_keV: 938272000 #eV/c^2
 p_mass_kg: 1.67262192e-27 # kg
 p_Z: 1.602176634e-19 # Atomic number
 
+# Solvers
+method: "RK45" #RK45 or lsoda
+relative_tolerance: 10e-6
 
+# Plots
 time_plots_size: 0.08
 time_plots_color: "blue"
 time_plots_ylabel_fontsize: 10
@@ -53,6 +57,8 @@ torus3d_orbit_size: .2
 torus_color: "cyan"
 vaxis_color: "blue"
 particle_color: "red"
+flux_surface_color: "red"
+flux_surface_opacity: 0.3
 
 defaults: {"percentage": 100, "truescale": True,
           "min_step": 0.01, "seconds": 60}

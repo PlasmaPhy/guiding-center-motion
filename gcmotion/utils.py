@@ -30,6 +30,9 @@ class ConfigFile:
             "p_Z": self.config["p_Z"],
         }
 
+        # Solver
+        self.method = self.config["method"]
+        self.rtol = self.config["relative_tolerance"]
         # Time plots
         self.time_scatter_kw = {
             "s": self.config["time_plots_size"],
@@ -108,6 +111,8 @@ class ConfigFile:
         self.torus_color = self.config["torus_color"]
         self.vaxis_color = self.config["vaxis_color"]
         self.particle_color = self.config["particle_color"]
+        self.flux_surface_color = self.config["flux_surface_color"]
+        self.flux_surface_opacity = self.config["flux_surface_opacity"]
         self.defaults = self.config["defaults"]
 
     def __getitem__(self, kw):
