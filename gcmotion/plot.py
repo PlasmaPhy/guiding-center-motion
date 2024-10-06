@@ -105,7 +105,7 @@ class Plot:
         rs = np.linspace(0, self.a, 100)
         thetas = np.linspace(0, 2 * np.pi, 100)
         r, theta = np.meshgrid(rs, thetas)
-        B = 1 - r * np.cos(theta)
+        B = self.Bfield.B(r, theta)
         ax_B.contourf(theta, r, B, levels=100, cmap="winter")
 
     def time_evolution(self, percentage: int = 100):
@@ -181,7 +181,7 @@ class Plot:
         ax[0].set_xticks(np.linspace(-2 * np.pi, 2 * np.pi, 9), ticks)
         ax[0].set_xlim(theta_lim)
 
-    def Ptheta_drift(self, theta_lim: list[-np.pi, np.pi], ax):
+    def Ptheta_drift(self, theta_lim: list[-np.pi, np.pi], **kwargs):
         r"""Draws :math:`\theta - P_\theta` plot.
 
         This method is called internally by ``countour_energy()``
@@ -193,13 +193,25 @@ class Plot:
             ax (pyplot ax, optional): The pyplot ``ax`` object to plot upon.
         """
 
+        canvas = kwargs.get("canvas", None)
+        different_colors = kwargs.get("different_colors", False)
+
         # Set theta lim. Mods all thetas to 2π
         theta_min, theta_max = theta_lim
         theta_plot = utils.theta_plot(self.theta, theta_lim)
 
-        ax.scatter(
-            theta_plot, self.Ptheta / self.psi_wall, **self.Config.drift_scatter_kw, zorder=2
-        )
+        if canvas is None:
+            fig = plt.figure(figsize=(6, 4))
+            ax = fig.add_subplot(111)
+            canvas = (fig, ax)
+        else:
+            fig, ax = canvas
+
+        scatter_kw = self.Config.drift_scatter_kw
+        if different_colors:
+            del scatter_kw["color"]
+
+        ax.scatter(theta_plot, self.Ptheta / self.psi_wall, **scatter_kw, zorder=2)
         ax.set_xlabel(r"$\theta$", **self.Config.drift_xlabel_kw)
         ax.set_ylabel(r"$P_\theta$", **self.Config.drift_ylabel_kw)
 
@@ -257,6 +269,7 @@ class Plot:
         units: Literal["normal", "eV", "keV"] = "keV",
         levels: int = None,
         wall_shade: bool = True,
+        **kwargs,
     ):
         r"""Draws a 2D contour plot of the Hamiltonian.
 
@@ -266,40 +279,34 @@ class Plot:
         Args:
             theta_lim (list, optional): Plot xlim. Must be either [0,2π] or [-π,π].
                 Defaults to [-π,π].
-            psi_lim (list or str, optional): If a list is passed, it plots between the
+            psi_lim (list | str, optional): If a list is passed, it plots between the
                 2 values relative to :math:`\psi_{wall}`. Defaults to 'auto'.
             plot_drift (bool, optional): Whether or not to plot :math:`\theta-P_\theta`
                 drift on top. Defaults to True.
             contour_Phi (bool, optional): Whether or not to add the Φ term in the
                 energy contour. Defaults to True.
             units (str, optional): The energy units. Must be 'normal', 'eV' or 'keV'. Defaults
-                to `keV`.
+                to `keV`. Defaults to "keV".
             levels (int, optional): The number of contour levels. Defaults to Config setting.
             wall_shade (bool, optional): Whether to shade the region
-                :math:`\psi/\psi_{wall} > 1`.
+                :math:`\psi/\psi_{wall} > 1`. Defaults to True.
         """
+        canvas = kwargs.get("canvas", None)
 
-        fig = plt.figure(figsize=(6, 4))
-        ax = fig.add_subplot(111)
+        if canvas is None:
+            fig = plt.figure(figsize=(6, 4))
+            ax = fig.add_subplot(111)
+            canvas = (fig, ax)
+        else:
+            fig, ax = canvas
 
         # Set theta lim. Mods all thetas to 2π
         theta_min, theta_max = theta_lim
 
         if plot_drift:
-            self.Ptheta_drift(theta_lim, ax)
+            self.Ptheta_drift(theta_lim, canvas=canvas)
 
-        if units == "normal":
-            label = "E (normalized)"
-            E_label = self.E
-        elif units == "eV":
-            label = "E (eV)"
-            E_label = self.E_eV
-        elif units == "keV":
-            label = "E (keV)"
-            E_label = self.E_eV / 1000
-        else:
-            print('units must be either "normal", "eV" or "keV"')
-            return
+        label, E_cbar = self._cbar_label(units)
 
         # Set psi limits (Normalised to psi_wall)
         if type(psi_lim) is str:
@@ -342,15 +349,34 @@ class Plot:
         plt.xticks(np.linspace(-2 * np.pi, 2 * np.pi, 9), ticks)
         ax.set(xlim=[theta_min, theta_max], ylim=np.array(psi_lim) / self.psi_wall)
         ax.set_facecolor("white")
-        cbar = fig.colorbar(C, ax=ax, fraction=0.03, pad=0.2, label=label)
-        # Draw a small dash over the colorbar indicating the particle's energy level
-        cbar.ax.plot([0, 1], [E_label, E_label], linestyle="-", c="r", zorder=3)
 
         if wall_shade:  # ψ_wall boundary rectangle
             rect = Rectangle(
                 (theta_lim[0], 1), 2 * np.pi, psi_max / self.psi_wall, alpha=0.2, color="k"
             )
             ax.add_patch(rect)
+
+        if kwargs == {}:  # If called for a single particle
+            label, E_cbar = self._cbar_label(units)
+            cbar = fig.colorbar(C, ax=ax, fraction=0.03, pad=0.2, label=label)
+            cbar.ax.plot([0, 1], [E_cbar, E_cbar], linestyle="-", zorder=3)
+            return
+        return C
+
+    def _cbar_label(self, units):
+        if units == "normal":
+            label = "E (normalized)"
+            E_cbar = self.E
+        elif units == "eV":
+            label = "E (eV)"
+            E_cbar = self.E_eV
+        elif units == "keV":
+            label = "E (keV)"
+            E_cbar = self.E_eV / 1000
+        else:
+            print('units must be either "normal", "eV" or "keV"')
+            return
+        return label, E_cbar
 
     def parabolas(self):
         """Constructs and plots the orbit type parabolas.
@@ -362,18 +388,24 @@ class Plot:
             return
         Construct(self)
 
-    def orbit_point(self):
+    def orbit_point(self, different_colors=False, labels=True):
         r"""Plots the particle point on the :math:`\mu-P_\zeta` (normalized) plane."""
 
         if self.has_efield:
             return
 
-        plt.plot(self.orbit_x, self.orbit_y, **self.Config.orbit_point_kw)
-        label = "  Particle " + f"({self.t_or_p[0]}-{self.l_or_c[0]})"
-        plt.annotate(label, (self.orbit_x, self.orbit_y), color="b")
+        orbit_point_kw = self.Config.orbit_point_kw.copy()
+        if different_colors:
+            del orbit_point_kw["markerfacecolor"]
+
+        plt.plot(self.orbit_x, self.orbit_y, **orbit_point_kw)
+
+        if labels:
+            label = "  Particle " + f"({self.t_or_p[0]}-{self.l_or_c[0]})"
+            plt.annotate(label, (self.orbit_x, self.orbit_y), color="b")
         plt.xlabel(r"$P_\zeta/\psi_p$")
 
-    def _toruspoints(self, percentage: int = 100, truescale: bool = True):
+    def _toruspoints(self, percentage: int = 100, truescale: bool = True) -> tuple:
         r"""Calculates the toroidal coordionates of the particles orbit,
         :math:`(r, \theta, \zeta)`.
 

@@ -4,14 +4,13 @@ orbit type, and can draw several different plots
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
+from time import time
 from scipy.integrate import odeint, solve_ivp
-from scipy import fft
-from scipy.signal import argrelextrema as ex
 from math import sqrt, sin, cos
 from .plot import Plot
 from .parabolas import Construct
 from .fft import FreqAnalysis
+from .bfield import MagneticField
 from .efield import ElectricField, Nofield
 from .qfactor import QFactor
 from . import utils
@@ -34,7 +33,7 @@ class Particle:
         R: float,
         a: float,
         q: QFactor,
-        Bfield: list,
+        Bfield: MagneticField,
         Efield: ElectricField,
         method: str = "RK45",
         rtol: float = 10e-6,
@@ -53,7 +52,8 @@ class Particle:
             a (float): The tokamak's minor radius in [m].
             q (QFactor): Qfactor object that supports query methods for getting values
                 of :math:`q(\psi)` and :math:`\psi_p(\psi)`.
-            Bfield (list): The toroidal and poloidal currents, and the field
+            Bfield (MagneticField): Magnetic Field Object that supports query methods for getting
+                values for the field itself.
                 magnitude (in [T]) of the magnetic field B, as in
                 :math:`[g, I, B_0]`.
             Efield (ElectricField): Electric Field Object that supports query methods for getting
@@ -68,7 +68,7 @@ class Particle:
         self.Config = utils.ConfigFile()
 
         # Tokamak Configuration
-        if Efield is None:
+        if Efield is None or isinstance(Efield, Nofield):
             self.Efield = Nofield()
             self.has_efield = False
         else:
@@ -76,7 +76,7 @@ class Particle:
             self.has_efield = True
         self.Bfield = Bfield
         self.R, self.a = R, a
-        self.I, self.g, self.B0 = self.Bfield
+        self.I, self.g, self.B0 = self.Bfield.I, self.Bfield.g, self.Bfield.B0
         self.q = q
         self.r_wall = self.a / self.R
         self.psi_wall = (self.r_wall) ** 2 / 2  # normalized to R
@@ -145,12 +145,13 @@ class Particle:
             + f"\tMinor Radius:\t\t\tα = {self.a} meters\n"
             + "\tToroidal Flux at wall:\t\tψ = {:n}\n".format(self.psi_wall)
             + "\tTime unit:\t\t\tω = {:e} Hz \n".format(self.w0)
-            + "\tEnergy unit:\t\t\tE = {:e} J \n".format(self.E_unit)
+            + "\tEnergy unit:\t\t\tE = {:e} J \n\n".format(self.E_unit)
+            + self.time_str
         )
 
         return info_str
 
-    def run(self, info: bool = True):
+    def run(self, info: bool = True, orbit=True):
         r"""Calculates the motion and attributes of the particle.
 
         This is the function that must be called after the initial conditions
@@ -164,11 +165,17 @@ class Particle:
         """
 
         self._conversion_factors()
-        self._orbit()
+        if orbit:
+            start = time()
+            self._orbit()
+            end = time()
+            duration = f"{end-start:.4f}"
+            self.time_str = f"Orbit calculation time: {duration}s."
         self._energies()
         self._orbit_type()
 
-        print(self.__str__())
+        if info:
+            print(self.__str__())
 
         self.plot = Plot(self)
         self.FreqAnalysis = FreqAnalysis(self)
@@ -211,7 +218,7 @@ class Particle:
             sin_theta = sin(theta)
             cos_theta = cos(theta)
             r = sqrt(2 * psi)
-            B = 1 - r * cos_theta  # B0?
+            B = self.Bfield.B(r, theta)
             par = self.mu + rho**2 * B
             bracket1 = -par * q_value * cos_theta / r + phi_der_psip
             bracket2 = par * r * sin_theta + phi_der_theta
@@ -276,7 +283,7 @@ class Particle:
         its initial conditions.
         """
         r0 = sqrt(2 * self.psi0)
-        B_init = 1 - r0 * cos(self.theta0)
+        B_init = self.Bfield.B(r0, self.theta0)
         Phi_init = float(self.Efield.Phi_of_psi(self.psi0))
         Phi_init_NU = Phi_init * self.Volts_to_NU
 
@@ -311,6 +318,10 @@ class Particle:
         if self.has_efield:
             return
 
+        if not self.Bfield.is_lar:
+            print("Orbit type calculations apply only in LAR.")
+            return
+
         # Calculate Bmin and Bmax. In LAR, B decreases outwards.
         Bmin = 1 - sqrt(2 * self.psi_wall)  # "Bmin occurs at psi_wall, θ = 0"
         Bmax = 1 + sqrt(2 * self.psi_wall)  # "Bmax occurs at psi_wall, θ = π"
@@ -324,7 +335,7 @@ class Particle:
             self.t_or_p = "Passing"
 
         # Find if lost or confined
-        self.orbit_x = self.Pz0 / self.psip_wall
+        self.orbit_x = self.Pz0 / self.psip0
         self.orbit_y = self.mu / self.E
         foo = Construct(self, get_abcs=True)
 

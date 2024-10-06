@@ -7,7 +7,7 @@ class Construct:
     trapped-passing boundary and plots them.
     """
 
-    def __init__(self, cwp, get_abcs=False):
+    def __init__(self, cwp, get_abcs=False, limit_axis=True):
         r"""Copies attributes from cwp to self.
 
         The instance itself is initialized internally by the Plot class, and
@@ -18,7 +18,7 @@ class Construct:
         """
         self.__dict__ = dict(cwp.__dict__)
         self.get_abcs = get_abcs
-
+        self.limit_axis = limit_axis
         self._setup()
 
         if self.get_abcs:  # Just get the coefficients and return
@@ -113,10 +113,12 @@ class Construct:
         plt.plot(x, y, linestyle="dashdot", **self.Config.parabolas_dashed_plot_kw)
 
         # General plot settings
-        plt.gca().set_xlim(self.xlim)
         top_par = _Parabola(self.abcs[0])
         _, top = top_par._get_extremum()
-        plt.gca().set_ylim(bottom=self.ylim[0], top=self.ylim[1])
+        plt.gca().set_ylim(bottom=self.ylim[0])
+        if self.limit_axis:
+            plt.gca().set_xlim(self.xlim)
+            plt.gca().set_ylim(top=self.ylim[1])
         plt.ylabel(r"$\dfrac{\mu B_0}{E}$", rotation=0)
         plt.xlabel(r"$P_\zeta/\psi_p$")
         plt.title(r"Orbit types in the plane of $P_\zeta - \mu$ for fixed energy.", c="b")
