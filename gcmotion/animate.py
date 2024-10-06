@@ -32,7 +32,7 @@ def run(cwp, params: dict = {}):
     min_step = params["min_step"]
     seconds = params["seconds"]
 
-    R, a, r_torus, theta_torus, z_torus = cwp.toruspoints(
+    R, a, r_torus, theta_torus, z_torus = cwp.plot._toruspoints(
         percentage=percentage, truescale=truescale
     )
     # Cartesian (y and z are switched in vpython!)

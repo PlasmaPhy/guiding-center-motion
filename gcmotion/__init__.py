@@ -14,15 +14,13 @@
 
     efield
     qfactor
-    parabolas
 """
 
 from .particle import Particle
 from .particles import Particles
 from .plot import Plot
+from .animate import animate
 
 from . import qfactor, efield, parabolas
-
-from .animate import animate
 
 __all__ = ["Particle", "Particles", "Plot", "efield", "qfactor", "parabolas", "animate"]

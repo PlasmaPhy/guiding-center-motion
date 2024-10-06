@@ -1,18 +1,37 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from .efield import ElectricField
-from . import utils
 
 
 class Construct:
+    """Constructs the orbit type parabolas, as well as the
+    trapped-passing boundary and plots them.
+    """
 
-    def __init__(self, cwp):
-        # Set cwp's attributes as own
+    def __init__(self, cwp, get_abcs=False):
+        r"""Copies attributes from cwp to self.
+
+        The instance itself is initialized internally by the Plot class, and
+        should not be called by the user.
+
+        Args:
+            cwp (Particle): The Current Working Particle
+        """
         self.__dict__ = dict(cwp.__dict__)
-        self.setup()
+        self.get_abcs = get_abcs
 
-    def setup(self):
+        self._setup()
 
+        if self.get_abcs:  # Just get the coefficients and return
+            self.return_abcs()
+            return
+
+        self._plot_parabolas()
+        self._plot_tp_boundary()
+
+    def _setup(self):
+        """Calculates the parabolas' constants, x-intercepts,
+        maximums, and sets the x-limits
+        """
         mu, psi_wall, g = self.mu, self.psi_wall, self.g
 
         Bmin = 1 - np.sqrt(2 * psi_wall)  # "Bmin occurs at psip_wall, θ = 0"
@@ -46,10 +65,13 @@ class Construct:
         # Calculate all x-intercepts and use the 2 outermost
         self.abcs = [abc1, abc2, abc3]
 
+        if self.get_abcs:
+            return
+
         x_intercepts = np.array(3)
-        self.par1 = Parabola(self.abcs[0])  # Top Left
-        self.par2 = Parabola(self.abcs[1])  # Bottom Left
-        self.par3 = Parabola(self.abcs[2])  # Right
+        self.par1 = _Parabola(self.abcs[0])  # Top Left
+        self.par2 = _Parabola(self.abcs[1])  # Bottom Left
+        self.par3 = _Parabola(self.abcs[2])  # Right
 
         for par in [self.par1, self.par2, self.par3]:
             if par.discriminant <= 0:
@@ -75,10 +97,6 @@ class Construct:
         self.xlim = [1.02 * x_intercepts.min(), 1.02 * x_intercepts.max()]
         self.ylim = [0, 1.1 * extremums.max()]
 
-        # Run
-        self._plot_parabolas()
-        self._plot_tp_boundary()
-
     def _plot_parabolas(self):
         """Plots the 3 parabolas."""
 
@@ -96,7 +114,7 @@ class Construct:
 
         # General plot settings
         plt.gca().set_xlim(self.xlim)
-        top_par = Parabola(self.abcs[0])
+        top_par = _Parabola(self.abcs[0])
         _, top = top_par._get_extremum()
         plt.gca().set_ylim(bottom=self.ylim[0], top=self.ylim[1])
         plt.ylabel(r"$\dfrac{\mu B_0}{E}$", rotation=0)
@@ -107,9 +125,9 @@ class Construct:
         """Plots the Trapped-Passing Boundary."""
 
         # Vertical line
-        foo = Parabola(self.abcs[0])
+        foo = _Parabola(self.abcs[0])
         p1 = foo._get_extremum()
-        foo = Parabola(self.abcs[1])
+        foo = _Parabola(self.abcs[1])
         p2 = foo._get_extremum()
 
         plt.plot([p1[0], p2[0]], [p1[1], p2[1]], **self.Config.vertical_line_plot_kw)
@@ -134,19 +152,28 @@ class Construct:
         plt.plot(x, y1_plot, **self.Config.parabolas_dashed_plot_kw)
         plt.plot(x, y2_plot, **self.Config.parabolas_dashed_plot_kw)
 
+    def return_abcs(self):
+        """Returns the consants of the 3 parabolas as [[...],[...],[...]]
+        Used in determining particle's orbit type.
+        """
+        return self.abcs
+
 
 # ______________________
-class Parabola:
+class _Parabola:
     """Creates a general-form parabola :math:`ax^2 + bx + c = 0`,
     calculates intercepts and extremums.
+
+    Should only be used internally by the class ``Construct``
 
     Both x and y are normalized, :math:`x = Pz/psip_wall` and :math:`y=μB0/E`.
     """
 
-    def __init__(self, abc: np.array):  # Ready to commit
+    def __init__(self, abc: np.array):
         """Initialization and intercepts/extremums calculation.
 
-        :param abc: 1x3 array containing the 3 constants.
+        Args:
+            abc (np.array): 1x3 array containing the 3 constants.
         """
         self.a = abc[0]
         self.b = abc[1]
@@ -173,12 +200,20 @@ class Parabola:
             self.max_pos = -self.b / (2 * self.a)
             self.max = self.a * self.max_pos**2 + self.b * self.max_pos + self.c
 
-    def _get_x_intercepts(self):  # Should fix the case that no intercepts exist
-        """Returns the 2 x-intercepts as an array"""
+    def _get_x_intercepts(self):
+        """Returns the 2 x-intercepts as an array.
+
+        Returns:
+            np.array: 1D np.array containing the 2 x-intercepts.
+        """
         return self.x_intercepts
 
     def _get_extremum(self):
-        """Returns the extremum point as (x,y)"""
+        """Returns the extremum point as (x,y)
+
+        Returns:
+            2-tuple: The extremum point
+        """
         if self.a > 0:
             return [self.min_pos, self.min]
         else:
@@ -191,9 +226,12 @@ class Parabola:
             xlim (list): The x interval. Determined by the plotter
                     so that all 3 parabolas are constructed at the
                     same interval.
+
+        Returns:
+            2-tuple of 1D np.arrays: The x and y to be plotted.
         """
 
         x = np.linspace(xlim[0], xlim[1], 1000)
         y = self.a * x**2 + self.b * x + self.c
 
-        return [x, y]
+        return (x, y)

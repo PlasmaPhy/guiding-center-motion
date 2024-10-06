@@ -10,9 +10,10 @@ from scipy import fft
 from scipy.signal import argrelextrema as ex
 from math import sqrt, sin, cos
 from .plot import Plot
+from .parabolas import Construct
+from .fft import FreqAnalysis
 from .efield import ElectricField, Nofield
 from .qfactor import QFactor
-from .parabolas_old import OrbitParabolas
 from . import utils
 
 
@@ -130,6 +131,7 @@ class Particle:
             orbit_type_str = "Cannot calculate (Electic field is non-zero)"
         else:
             orbit_type_str = f"{self.t_or_p} - {self.l_or_c}"
+
         info_str = (
             "Constants of motion:\n"
             + "\tParticle Energy (normalized):\tE  = {:e}\n".format(self.E)
@@ -169,6 +171,7 @@ class Particle:
         print(self.__str__())
 
         self.plot = Plot(self)
+        self.FreqAnalysis = FreqAnalysis(self)
 
     def _orbit(self):
         r"""Calculates the orbit of the particle, as well as
@@ -253,11 +256,12 @@ class Particle:
         r"""Calculates the conversion coeffecient needed to convert from lab to NU
         and vice versa."""
         e = self.e  # 1.6*10**(-19)C
-        m = self.mass_kg
+        Z = self.Z
+        m = self.mass_kg  # kg
         B = self.B0  # Tesla
         R = self.R  # meters
 
-        self.w0 = e * B / m  # [s^-1]
+        self.w0 = abs(Z) * e * B / m  # [s^-1]
         self.E_unit = m * self.w0**2 * R**2  # [J]
 
         # Conversion Factors
@@ -322,9 +326,7 @@ class Particle:
         # Find if lost or confined
         self.orbit_x = self.Pz0 / self.psip_wall
         self.orbit_y = self.mu / self.E
-        foo = OrbitParabolas(
-            self.R, self.a, self.mu, self.Bfield, self.Efield, self.Volts_to_NU, plot=False
-        )
+        foo = Construct(self, get_abcs=True)
 
         # Recalculate y by reconstructing the parabola (there might be a better way
         # to do this)
@@ -332,30 +334,28 @@ class Particle:
         lower_y = foo.abcs[1][0] * self.orbit_x**2 + foo.abcs[1][1] * self.orbit_x + foo.abcs[1][2]
 
         if self.orbit_y < upper_y and self.orbit_y > lower_y:
-            self.l_or_c = "Lost"
-        else:
             self.l_or_c = "Confined"
+        else:
+            self.l_or_c = "Lost"
 
         self.calculated_orbit_type = True
 
-    def fourier(self, angle: str = "theta"):
+    def freq_analysis(self, angle: str = "theta"):
 
-        # Set working variable as 'x'
         if angle == "theta":
             x = self.theta
         elif angle == "zeta":
             x = self.z
-        else:
-            print("'Angle' parameter must be either 'theta' or 'zeta'")
 
-        # Calculate frequency from peaks
-        span = ex(x, np.greater)[0][:2]
-        x = x[span[0] : span[1]]
-        self.fpeaks = 1 / self.tspan[x.shape[0]]
+        f_avg, f_err, counts = self.FreqAnalysis.from_peaks(x)
+        f_avg *= self.w0
+        f_err *= self.w0
 
-        # Fourier analysis
-        dt = self.tspan[1] - self.tspan[0]
-        sample_rate = 1 / dt
-
-        X = fft.rfft(x) / x.shape[0]  # Divide to sample size
-        freq = fft.rfftfreq(x.shape[0]) * sample_rate
+        fourier_output = (
+            angle
+            + ":\tFrequency analysis from peak-to-peak:\n"
+            + f"\t\t Total periods counted: {counts}.\n"
+            + f"\t\t f_avg = {f_avg:.3e} Hz,\t f_err = {f_err:.3e} Hz\n"
+            + "--------------------------------------------------------------"
+        )
+        print(fourier_output)

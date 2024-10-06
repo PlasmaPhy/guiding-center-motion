@@ -16,16 +16,22 @@ class Plot:
     def __init__(self, cwp):
         r"""Copies attributes from cwp to self.
 
+        The instance itself is automatically initialized internally by the Particle
+        class, and only its methods are to be called by the user, as
+        ``cwp.plot.<method()>``.
+
         Args:
             cwp (Particle): The Current Working Particle
         """
         self.__dict__ = dict(cwp.__dict__)
 
-    def tokamak_profile(self, zoom: list = None):
+    def tokamak_profile(self, zoom: list = [0, 1.1]):
         r"""Plots the electric field, potential, and q factor,
         with respect to :math:`\psi/\psi_{wall}`.
 
-        zoom (list): zoom to specific area in the x-axis of the electric field and potential plots.
+        Args:
+            zoom (list, optional): zoom to specific area in the x-axis of the electric field
+                and potential plots. Defaults to [0, 1.1].
         """
 
         psi = np.linspace(0, 1.1 * self.psi_wall, 1000)
@@ -65,9 +71,8 @@ class Plot:
         ax_E.set_ylabel(Phi_ylabel)
         ax_E.set_title("Electric Potential [kV]", c="b")
 
-        if zoom is not None:
-            ax_phi.set_xlim(zoom)
-            ax_E.set_xlim(zoom)
+        ax_phi.set_xlim(zoom)
+        ax_E.set_xlim(zoom)
 
         # q(ψ)
         y1 = self.q.q_of_psi(psi)
@@ -104,11 +109,12 @@ class Plot:
         ax_B.contourf(theta, r, B, levels=100, cmap="winter")
 
     def time_evolution(self, percentage: int = 100):
-        """
-        Plots the time evolution of all the dynamical variables and
+        r"""Plots the time evolution of all the dynamical variables and
         canonical momenta.
 
-        :param percentage: The percentage of the orbit to be plotted.
+        Args:
+            percentage (int, optional): The percentage of the orbit to be plotted.
+                Defaults to 100.
         """
 
         if percentage < 1 or percentage > 100:
@@ -146,8 +152,9 @@ class Plot:
         r"""Draws 2 plots: 1] :math:`\theta-P_\theta`
         and 2] :math:`\zeta-P_\zeta`.
 
-        :param theta_lim: Plot xlim. Must be either [0,2π] or [-π,π].
-             Defaults to [-π,π].
+        Args:
+            theta_lim (list, optional): Plot xlim. Must be either [0,2π] or [-π,π].
+                Defaults to [-π,π].
         """
 
         # Set theta lim. Mods all thetas to 2π
@@ -174,14 +181,17 @@ class Plot:
         ax[0].set_xticks(np.linspace(-2 * np.pi, 2 * np.pi, 9), ticks)
         ax[0].set_xlim(theta_lim)
 
-    def Ptheta_drift(self, theta_lim: np.ndarray, ax):
+    def Ptheta_drift(self, theta_lim: list[-np.pi, np.pi], ax):
         r"""Draws :math:`\theta - P_\theta` plot.
 
         This method is called internally by ``countour_energy()``
         as well.
 
-        :param theta_lim: Plot xlim. Must be either [0,2π] or [-π,π].
-             Defaults to [-π,π]."""
+        Args:
+            theta_lim (list, optional): Plot xlim. Must be either [0,2π] or [-π,π].
+                Defaults to [-π,π].
+            ax (pyplot ax, optional): The pyplot ``ax`` object to plot upon.
+        """
 
         # Set theta lim. Mods all thetas to 2π
         theta_min, theta_max = theta_lim
@@ -198,10 +208,25 @@ class Plot:
         ax.set_xticks(np.linspace(-2 * np.pi, 2 * np.pi, 9), ticks)
         ax.set_xlim(theta_lim)
 
-    def _calcW_grid(self, theta, psi, Pz, contour_Phi=True, units=True):
-        """Returns a single value or a grid of the calculated Hamiltonian.
+    def _calcW_grid(
+        self,
+        theta: np.array,
+        psi: np.array,
+        Pz: float,
+        contour_Phi: bool,
+        units: str,
+    ):
+        r"""Returns a single value or a grid of the calculated Hamiltonian.
 
-        Only to be called internally, by ``contour_energy()``.
+        Only to be called internally, by ``contour_energy()``..
+
+        Args:
+            theta (np.array): The :math:`\theta` values.
+            psi (np.array): The :math:`\psi` values.
+            Pz (float): The :math:`P_\zeta` value.
+            contour_Phi (bool): Whether or not to add the electric potential term
+                :math:`e\Phi`.
+            units (str): The energy units.
         """
 
         r = np.sqrt(2 * psi)
@@ -213,7 +238,7 @@ class Plot:
         # Add Φ if asked
         if contour_Phi:
             Phi = self.Efield.Phi_of_psi(psi)
-            Phi *= self.Volts_to_NU
+            Phi *= self.Volts_to_NU * self.sign
             W += Phi  # all normalized
 
         if units == "eV":
@@ -225,7 +250,7 @@ class Plot:
 
     def contour_energy(
         self,
-        theta_lim: list,
+        theta_lim: list = [-np.pi, np.pi],
         psi_lim: str | list = "auto",
         plot_drift: bool = True,
         contour_Phi: bool = True,
@@ -238,19 +263,20 @@ class Plot:
         Can also plot the current particle's :math:`\theta-P_\theta` drift.
         Should be False when running with multiple initial conditions.
 
-        :param theta_lim: Plot xlim. Must be either [0,2π] or [-π,π].
-             Defaults to [-π,π].
-        :param psi_lim: If a list is passed, it plots between the
-            2 values relative to :math:`\psi_{wall}`.
-        :param plot_drift: Whether or not to plot :math:`\theta-P_\theta`
-            drift on top.
-        :param contour_Phi: Whether or not to add the Φ term in the
-            energy contour.
-        :param units: The units in which energies are displayed.
-            Must be either "normal", "eV", or "keV".
-        :param levels: The number of contour levels. Defaults to Config setting.
-        :param wall_shade: Whether to shade the region
-            :math:`\psi/\psi_{wall} > 1`.
+        Args:
+            theta_lim (list, optional): Plot xlim. Must be either [0,2π] or [-π,π].
+                Defaults to [-π,π].
+            psi_lim (list or str, optional): If a list is passed, it plots between the
+                2 values relative to :math:`\psi_{wall}`. Defaults to 'auto'.
+            plot_drift (bool, optional): Whether or not to plot :math:`\theta-P_\theta`
+                drift on top. Defaults to True.
+            contour_Phi (bool, optional): Whether or not to add the Φ term in the
+                energy contour. Defaults to True.
+            units (str, optional): The energy units. Must be 'normal', 'eV' or 'keV'. Defaults
+                to `keV`.
+            levels (int, optional): The number of contour levels. Defaults to Config setting.
+            wall_shade (bool, optional): Whether to shade the region
+                :math:`\psi/\psi_{wall} > 1`.
         """
 
         fig = plt.figure(figsize=(6, 4))
@@ -327,7 +353,10 @@ class Plot:
             ax.add_patch(rect)
 
     def parabolas(self):
+        """Constructs and plots the orbit type parabolas.
 
+        Returns early if there is no Electric field.
+        """
         if self.has_efield:
             print("Parabolas dont work with Efield present.")
             return
@@ -339,13 +368,31 @@ class Plot:
         if self.has_efield:
             return
 
-        print(self.orbit_x, self.orbit_y)
         plt.plot(self.orbit_x, self.orbit_y, **self.Config.orbit_point_kw)
         label = "  Particle " + f"({self.t_or_p[0]}-{self.l_or_c[0]})"
         plt.annotate(label, (self.orbit_x, self.orbit_y), color="b")
         plt.xlabel(r"$P_\zeta/\psi_p$")
 
-    def _toruspoints(self, percentage: int = 100, truescale: bool = False):
+    def _toruspoints(self, percentage: int = 100, truescale: bool = True):
+        r"""Calculates the toroidal coordionates of the particles orbit,
+        :math:`(r, \theta, \zeta)`.
+
+        :math:`r = \sqrt{2\psi}` rather than :math:`\psi` itself is used for
+        the plot, since it is a better representation of the actual orbit.
+
+        Args:
+            percentage (int, optional): The percentage of the orbit to be plotted.
+                Defaults to 100.
+            truescale (bool, optional): Whether or not to use the actual tokamak
+                dimensions, or fit them around the orbit for better visibility.
+                Defaults to True.
+
+        Returns:
+            5-tuple of np.arrays: 
+                The major and minor radii of the (possibly scaled) \
+                tokamak and the toroidal coordionates of the particles orbit.
+                :math:`(r, \theta, \zeta)`.
+        """
 
         if self.percentage_calculated == percentage:
             # No need to recalculate, already stored in self
@@ -378,11 +425,13 @@ class Plot:
         return self.Rtorus, self.atorus, self.r_torus, self.theta_torus, self.z_torus
 
     def torus2d(self, percentage: int = 100, truescale: bool = False):
-        """Plots the poloidal and toroidal view of the orbit.
+        r"""Plots the poloidal and toroidal view of the orbit.
 
-        :param percentage: 0-100: the percentage of the orbit to be plotted.
-        :param truescale: Whether or not to construct the torus and orbit
-            with the actual units of R and r.
+        Args:
+            percentage (int, optional): 0-100: the percentage of the orbit
+                to be plotted. Defaults to 100.
+            truescale (bool, optional): Whether or not to construct the torus and orbit
+                with the actual units of R and r. Defaults to True.
         """
 
         # Configure torus dimensions and orbit and store internally
@@ -433,19 +482,23 @@ class Plot:
         self,
         percentage: int = 100,
         truescale: bool = False,
-        hd: bool = True,
-        bold: str = "foo",
+        hd: bool = False,
+        bold: str = "default",
         white_background: bool = True,
     ):
-        """Creates a 3d transparent torus and the particle's orbit.
+        r"""Creates a 3d transparent torus and the particle's orbit.
 
-        :param percentage: 0-100: the percentage of the orbit to be plotted.
-        :param truescale: Whether or not to construct the torus and
-            orbit with the actual units of R and r.
-        :param hd: High definition image (dpi = 900).
-        :param bold: The "boldness" level. Levels are "bold", "BOLD", or any.
-        :param white_background: Whether to paint the background white or not.
-            Overwrites the default plt.style()
+        Args:
+            percentage (int, optional): 0-100: the percentage of the orbit
+                to be plotted. Defaults to 100.
+            truescale (bool, optional): Whether or not to construct the torus and orbit
+                with the actual units of R and r. Defaults to True.
+            hd (bool, optional): High definition image (dpi = 900). Defaults to False
+                (dpi = 300).
+            bold (str, optional): The "boldness" level. Levels are "bold", "BOLD", or any.
+                Defaults to Config settings.
+            white_background (bool, optional): Whether to paint the background white or not.
+                Overwrites the default plt.style(). Defaults to True.
         """
 
         # Configure torus dimensions and orbit and store internally
