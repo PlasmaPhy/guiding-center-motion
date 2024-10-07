@@ -1,13 +1,12 @@
 import gcmotion as gcm
 import numpy as np
 
-# fmt: off
-
 # To be passed to objects as parameters for ease
 R = 6.2
 a = 2
 q = gcm.qfactor.Hypergeometric(R, a)
 
+# fmt: off
 
 params = {
 

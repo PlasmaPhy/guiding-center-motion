@@ -594,3 +594,42 @@ class Plot:
         ax.set_xlim3d(0.8 * x_torus_wall.min(), 0.8 * x_torus_wall.max())
         ax.set_ylim3d(0.8 * y_torus_wall.min(), 0.8 * y_torus_wall.max())
         ax.set_zlim3d(-3, 3)
+
+    def fft(self):
+
+        X = self.FreqAnalysis.X
+        omegas = self.FreqAnalysis.omegas
+
+        if self.FreqAnalysis.normal:
+            xlabel_units = "Natural time units"
+        else:
+            xlabel_units = "Hertz [Hz]"
+
+        if self.FreqAnalysis.angle == "theta":
+            angle_plot = self.theta
+        elif self.FreqAnalysis.angle == "zeta":
+            angle_plot = self.z
+
+        # Plot only a few periods:
+        xargmax = np.argmax(X)
+        base_freq = omegas[xargmax]
+        duration = 10 * 2 * np.pi / base_freq
+        if not self.FreqAnalysis.normal:
+            duration /= self.w0
+
+        tspan_plot = self.tspan[self.tspan < duration]
+        angle_plot = angle_plot[: len(tspan_plot)]
+        print(duration, self.tspan[-1])
+
+        fig = plt.figure(figsize=(10, 5))
+        ax_time = fig.add_subplot(211)
+        ax_time.scatter(tspan_plot, angle_plot, **self.Config.time_scatter_kw)
+
+        ax_freq = fig.add_subplot(212)
+        markerline, stemlines, baseline = ax_freq.stem(np.abs(omegas), np.abs(X), linefmt="blue")
+        markerline.set_markersize(4)
+        stemlines.set_linewidths(0.8)
+        ax_freq.set_xlabel(f"Frequency in {xlabel_units}.")
+        ax_freq.set_ylabel("Frequency Domain (Spectrum) Magnitude")
+        xargmax = self.FreqAnalysis.xargmax  # x-index of peak frequency
+        ax_freq.set_xlim([-omegas[xargmax] / 5, 6 * omegas[xargmax]])

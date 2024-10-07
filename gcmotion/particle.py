@@ -9,7 +9,7 @@ from scipy.integrate import odeint, solve_ivp
 from math import sqrt, sin, cos
 from .plot import Plot
 from .parabolas import Construct
-from .fft import FreqAnalysis
+from .freq import FreqAnalysis
 from .bfield import MagneticField
 from .efield import ElectricField, Nofield
 from .qfactor import QFactor
@@ -178,7 +178,6 @@ class Particle:
             print(self.__str__())
 
         self.plot = Plot(self)
-        self.FreqAnalysis = FreqAnalysis(self)
 
     def _orbit(self):
         r"""Calculates the orbit of the particle, as well as
@@ -351,22 +350,34 @@ class Particle:
 
         self.calculated_orbit_type = True
 
-    def freq_analysis(self, angle: str = "theta"):
+    def freq_analysis(
+        self,
+        angle: str,
+        trim: bool = True,
+        normal: bool = False,
+        prominence: float | int = 0.8,
+    ):
 
         if angle == "theta":
             x = self.theta
         elif angle == "zeta":
             x = self.z
 
-        f_avg, f_err, counts = self.FreqAnalysis.from_peaks(x)
-        f_avg *= self.w0
-        f_err *= self.w0
-
-        fourier_output = (
-            angle
-            + ":\tFrequency analysis from peak-to-peak:\n"
-            + f"\t\t Total periods counted: {counts}.\n"
-            + f"\t\t f_avg = {f_avg:.3e} Hz,\t f_err = {f_err:.3e} Hz\n"
-            + "--------------------------------------------------------------"
+        # Plot Object needs to be re-initialized
+        self.FreqAnalysis = FreqAnalysis(
+            self, x, angle, trim=trim, normal=normal, prominence=prominence
         )
-        print(fourier_output)
+        self.FreqAnalysis.run()
+        self.plot = Plot(self)
+
+        # self.X, self.omegas = self.FreqAnalysis.X, self.FreqAnalysis.omegas
+        print(self.FreqAnalysis)
+
+        # fourier_output = (
+        #     angle
+        #     + ":\tFrequency analysis from peak-to-peak:\n"
+        #     + f"\t\t Total periods counted: {counts}.\n"
+        #     + f"\t\t f_avg = {f_avg:.3e} Hz,\t f_err = {f_err:.3e} Hz\n"
+        #     + "--------------------------------------------------------------"
+        # )
+        # print(fourier_output)
