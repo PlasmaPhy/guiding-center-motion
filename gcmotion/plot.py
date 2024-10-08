@@ -596,40 +596,52 @@ class Plot:
         ax.set_zlim3d(-3, 3)
 
     def fft(self):
+        """Plots the timeseries and its FFT results.
+
+        .. note:: Even though the time evolution plot only shows a few periods
+            for clarity, the FFT is calculated across the full orbit.
+        """
+
+        x = self.FreqAnalysis.x
+        t = self.FreqAnalysis.t
 
         X = self.FreqAnalysis.X
         omegas = self.FreqAnalysis.omegas
-
-        if self.FreqAnalysis.normal:
-            xlabel_units = "Natural time units"
-        else:
-            xlabel_units = "Hertz [Hz]"
-
-        if self.FreqAnalysis.angle == "theta":
-            angle_plot = self.theta
-        elif self.FreqAnalysis.angle == "zeta":
-            angle_plot = self.z
+        base_freq = self.FreqAnalysis.omega_manual
 
         # Plot only a few periods:
-        xargmax = np.argmax(X)
-        base_freq = omegas[xargmax]
-        duration = 10 * 2 * np.pi / base_freq
-        if not self.FreqAnalysis.normal:
-            duration /= self.w0
+        def plot_span():
+            """Sets the timeseries plot limits"""
 
-        tspan_plot = self.tspan[self.tspan < duration]
-        angle_plot = angle_plot[: len(tspan_plot)]
-        print(duration, self.tspan[-1])
+            duration = 10 * 2 * np.pi / base_freq
 
-        fig = plt.figure(figsize=(10, 5))
-        ax_time = fig.add_subplot(211)
-        ax_time.scatter(tspan_plot, angle_plot, **self.Config.time_scatter_kw)
+            t_plot = t[t < duration]
+            x_plot = x[: len(t_plot)]
 
-        ax_freq = fig.add_subplot(212)
-        markerline, stemlines, baseline = ax_freq.stem(np.abs(omegas), np.abs(X), linefmt="blue")
-        markerline.set_markersize(4)
-        stemlines.set_linewidths(0.8)
-        ax_freq.set_xlabel(f"Frequency in {xlabel_units}.")
-        ax_freq.set_ylabel("Frequency Domain (Spectrum) Magnitude")
-        xargmax = self.FreqAnalysis.xargmax  # x-index of peak frequency
-        ax_freq.set_xlim([-omegas[xargmax] / 5, 6 * omegas[xargmax]])
+            return t_plot, x_plot
+
+        def plot():
+            """Does the actual plotting."""
+
+            fig = plt.figure(figsize=(10, 5))
+            fig.subplots_adjust(hspace=0.4)
+
+            # Time evolution plot
+            ax_time = fig.add_subplot(211)
+            ax_time.scatter(t_plot, x_plot, **self.Config.time_scatter_kw)
+            ax_time.set_xlabel(f"Time ({self.FreqAnalysis.time_unit})")
+            ax_time.set_ylabel("Amplitude (rads)")
+
+            # FFT plot
+            ax_freq = fig.add_subplot(212)
+            markerline, stemlines, baseline = ax_freq.stem(
+                np.abs(omegas), np.abs(X), linefmt="blue"
+            )
+            markerline.set_markersize(4)
+            stemlines.set_linewidths(0.8)
+            ax_freq.set_xlabel(f"Frequency in {self.FreqAnalysis.freq_unit}.")
+            ax_freq.set_ylabel("Frequency Magnitude")
+            ax_freq.set_xlim([-base_freq / 5, 6 * base_freq])
+
+        t_plot, x_plot = plot_span()
+        plot()

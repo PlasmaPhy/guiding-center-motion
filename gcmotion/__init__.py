@@ -16,6 +16,7 @@
     bfield
     efield
     qfactor
+    freq
 
 """
 
@@ -25,7 +26,7 @@ from .plot import Plot
 from .plots import Plots
 from .animate import animate
 
-from . import bfield, qfactor, efield, parabolas
+from . import bfield, qfactor, efield, parabolas, freq
 
 __all__ = [
     "Particle",
@@ -37,4 +38,5 @@ __all__ = [
     "qfactor",
     "parabolas",
     "animate",
+    "freq",
 ]

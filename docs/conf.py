@@ -37,7 +37,4 @@ html_theme = "pydata_sphinx_theme"
 html_theme_options = {
     "secondary_sidebar_items": ["page-toc"],
 }
-
-autodoc_default_options = {
-    "member-order": "bysource",
-}
+autodoc_default_options = {"private-members": True, "member-order": "bysource"}

@@ -355,29 +355,86 @@ class Particle:
         angle: str,
         trim: bool = True,
         normal: bool = False,
-        prominence: float | int = 0.8,
+        remove_bias: bool = True,
+        info: bool = True,
     ):
+        r"""Given the input angle, runs Frequncy Analysis and prints results.
 
+        Trimming and removing the bias of the timeseries gives the best results, both in
+        peak-to-peak calculation of the frequency and FFT.
+
+        Calling this functions also stores the 0th and 1st frequency of the angle, which are
+        needed to calculate the q_kinetic.
+
+        Args:
+            angle (str): The angle to analyse,
+            trim (bool, optional): Whether or not to trim the edges of the time series.
+                Defaults to True.
+            normal (bool, optional): Whether or not to use normal or lab units.
+                Defaults to True.
+            remove_bias (bool, optional): Whether or not to remove the signal's bias.
+                Defaults to True.
+            info (bool, optional): Whether or not to print results. Defaults to True.
+        Returns:
+            str: The results of the analysis.
+        """
+
+        if not remove_bias:
+            print("Warning: not removing the biases returns nonsense frequencies!")
+
+        def run_fourier():
+            """Necessary steps to run the analysis.
+
+            Returns:
+                tuple: the 0-th and first frequency of the signal.
+            """
+
+            self.FreqAnalysis = FreqAnalysis(
+                self, x, angle, trim=trim, normal=normal, remove_bias=remove_bias
+            )
+
+            # Plot Object needs to be re-initialized
+            self.plot = Plot(self)
+
+            # Check if the frequencies are correctly calculated
+            if self.FreqAnalysis.q_kinetic_ready:
+                return self.FreqAnalysis.get_omegas()
+            else:
+                return (None, None)
+
+        # Also Inintialize frequencies to make sure they are calculated later
         if angle == "theta":
-            x = self.theta
+            x = self.theta.copy()
+            self.theta_0freq = self.theta_freq = None
+            self.theta_0freq, self.theta_freq = run_fourier()
         elif angle == "zeta":
-            x = self.z
+            x = self.z.copy()
+            self.z_0freq = self.z_freq = None
+            self.z_0freq, self.z_freq = run_fourier()
 
-        # Plot Object needs to be re-initialized
-        self.FreqAnalysis = FreqAnalysis(
-            self, x, angle, trim=trim, normal=normal, prominence=prominence
-        )
-        self.FreqAnalysis.run()
-        self.plot = Plot(self)
+        # Print results
+        if info:
+            return print(self.FreqAnalysis)
 
-        # self.X, self.omegas = self.FreqAnalysis.X, self.FreqAnalysis.omegas
-        print(self.FreqAnalysis)
+    def q_kinetic(self):
+        r"""Calculates the :math:`q_{kinetic}` factor.
 
-        # fourier_output = (
-        #     angle
-        #     + ":\tFrequency analysis from peak-to-peak:\n"
-        #     + f"\t\t Total periods counted: {counts}.\n"
-        #     + f"\t\t f_avg = {f_avg:.3e} Hz,\t f_err = {f_err:.3e} Hz\n"
-        #     + "--------------------------------------------------------------"
-        # )
-        # print(fourier_output)
+        Also checks if the frequencies have been calculated in the best way possible. If
+        not, they are re-calculated.
+
+        Returns:
+            str: The calculation results.
+        """
+
+        # Make sure frequencies are calculated correctly
+        if self.z_0freq is None:
+            print("Recalculating ζ's zeroth frequency correctly...")
+            self.freq_analysis(angle="zeta", trim=True, normal=False, remove_bias=True, info=False)
+
+        if self.theta_0freq is None:
+            print("Recalculating θ's zeroth frequency correctly...")
+            self.freq_analysis(angle="theta", trim=True, normal=False, remove_bias=True, info=False)
+
+        q_kinetic = abs(self.z_0freq / self.theta_freq)
+
+        return f"Calculated q_kinetic: {q_kinetic:.4f}"

@@ -55,7 +55,7 @@ class Plots:
         wall_shade: bool = True,
         **kwargs,
     ):
-        """Creates contour plot with the particles' drifts on top.
+        r"""Creates contour plot with the particles' drifts on top.
 
         Uses mostly the already existing plotting methods from ``Particle``
 
