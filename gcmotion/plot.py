@@ -602,6 +602,10 @@ class Plot:
             for clarity, the FFT is calculated across the full orbit.
         """
 
+        if not self.FreqAnalysis.signal_ok:
+            print("Error: cannot plot.")
+            return
+
         x = self.FreqAnalysis.x
         t = self.FreqAnalysis.t
 
@@ -613,9 +617,9 @@ class Plot:
         def plot_span():
             """Sets the timeseries plot limits"""
 
-            duration = 10 * 2 * np.pi / base_freq
+            tstop = 10 * 2 * np.pi / base_freq
 
-            t_plot = t[t < duration]
+            t_plot = t[t < tstop]
             x_plot = x[: len(t_plot)]
 
             return t_plot, x_plot

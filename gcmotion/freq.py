@@ -38,6 +38,8 @@ class FreqAnalysis:
         self.__dict__ = dict(cwp.__dict__)
 
         self.angle = angle
+        # self.x = np.concatenate([x, x[1:][::-1]])
+        # self.t = np.concatenate([self.tspan.copy(), self.tspan[-1] + self.tspan.copy()[1:]])
         self.x = x
         self.t = self.tspan.copy()
         self.trim = trim
@@ -52,6 +54,7 @@ class FreqAnalysis:
             self.freq_unit = "[normalised frequency units]"
             self.time_unit = "[normalised time unit]"
 
+        self.zeroth_freq = None
         # Flag to know if they frequencies are calculated correctly
         self.q_kinetic_ready = self.trim and self.remove_bias
 
@@ -60,11 +63,41 @@ class FreqAnalysis:
     def run(self):
         r"""Run the analysis in the correct order."""
 
+        if not self._singal_ok():
+            print(
+                "Error.  The signal might be aperiodic, or it didnt have time to"
+                + "complete enough cycles."
+            )
+            self.signal_ok = False
+            return
+        else:
+            self.signal_ok = True
+
+        self._biases()
+
+        if self.remove_bias:
+            self.x -= self.dc_bias + self.zeroth_freq * self.t
+
         self.omega_manual, self.omega_manual_err = self._get_omega_manual()
+
         if self.trim:
             self._trim()
-        self._biases()
+
         self._fft()
+
+    def _singal_ok(self):
+        """Checks if the singal is actually periodic or not.
+
+        It requires the signal to have at least 4 local maximums.
+        Else, the signal might be aperiodic, or it didnt have time to
+        complete enough cycles.
+        """
+
+        peaks, _ = fp(self.x)
+        if len(peaks) < 4:
+            return False
+        else:
+            return True
 
     def __str__(self):
         r"""Calculate the results strings.
@@ -75,10 +108,10 @@ class FreqAnalysis:
 
         info_str = (
             f"---------{self.angle.upper()}---------\n"
-            + f"Frequency (from peak-to-peak) =\t\t({self.omega_manual:.4g} \u00b1 {self.omega_manual_err:.4g}) {self.freq_unit}.\n"
-            + f"DC bias: =\t\t\t\t{self.dc_bias:.4g} rads.\n"
-            + f"Bias (zeroth frequency) =\t\t{self.zeroth_freq:.4g} rads/{self.time_unit}.\n"
-            + f"Filtered(unbiased) signal amplitude:\t{self.amplitude:.4e} rads.\n"
+            + f"Frequency (from peak-to-peak)\t\t= ({self.omega_manual:.4g} \u00b1 {self.omega_manual_err:.4g}) {self.freq_unit}.\n"
+            + f"DC bias:\t\t\t\t= {self.dc_bias:.4g} rads.\n"
+            + f"Bias (zeroth frequency)\t\t\t= {self.zeroth_freq:.4g} rads/{self.time_unit}.\n"
+            + f"Filtered(unbiased) signal amplitude\t= {self.amplitude:.4e} rads.\n"
         )
         return info_str
 
@@ -90,7 +123,6 @@ class FreqAnalysis:
             tuple[float, float]: the calculated frequency and its standard error.
         """
 
-        self.amplitude = np.abs(self.x).max()
         height = self.amplitude * 0.8
 
         # Find the major peaks,valleys
@@ -121,22 +153,34 @@ class FreqAnalysis:
         self.t = self.t[self.peaks[0] : self.peaks[-1]]
 
     def _biases(self):
-        r"""Removes both the DC and the 'rising' biases from the signal, so that they don't
-        show up in the FFT.
+        """Calculates the DC and rising (zeroth frequency) biases.
+
+        Does not subtract them from the signal. This happens in ``__init__()`` only if the
+        parameter ``remove_bias`` is True.
         """
+        # Rising bias
+        t = self.t.copy()
+        x = self.x.copy()
 
-        tempx = self.x.copy()
-        grad = np.gradient(tempx, self.t)
-        self.zeroth_freq = np.mean(grad)
-        curvature = self.zeroth_freq
+        # Calculate zeroth frequency usning 2 consecutive peaks:
+        peaks, _ = fp(x)
+        peak_indices = peaks[0:2]
+        peak_times = t[peak_indices]
+        peak_signal = x[peak_indices]
+        hdist = np.diff(peak_times)
+        vdist = np.diff(peak_signal)
+        self.zeroth_freq = float(vdist / hdist)
 
-        tempx -= curvature * self.t
+        # Trim a copy of self.x to calculate the DC bias accurately, without changing self.x yet.
+        x -= self.zeroth_freq * t  # Remove rising bias
 
-        self.dc_bias = np.mean(tempx)
+        peaks, _ = fp(x)
+        x = x[peaks[0] : peaks[-1]]
+        self.dc_bias = np.mean(x)
+        x -= self.dc_bias
 
-        if self.remove_bias:
-            tempx -= self.dc_bias
-            self.x = tempx.copy()
+        # Now calculate amplitude correctly
+        self.amplitude = np.abs(x).max()
 
     def _fft(self):
         r"""Calculates the FFT of the timeseries.
@@ -189,7 +233,7 @@ class FreqAnalysis:
         Returns:
             tuple: The calculated frequencies (or `None` if not calculated correctly.)
         """
-        if self.q_kinetic_ready:
+        if self.q_kinetic_ready and self.signal_ok:
             return self.zeroth_freq, self.harmonics[1]
         else:
             return (None, None)

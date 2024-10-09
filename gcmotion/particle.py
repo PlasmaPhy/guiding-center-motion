@@ -125,6 +125,9 @@ class Particle:
         self.l_or_c = "Unknown"
         self.percentage_calculated = 0
 
+        # Stored to avoid attribute errors
+        self.z_0freq = self.z_freq = self.theta_0freq = self.theta_freq = None
+
     def __str__(self):
 
         if self.has_efield:
@@ -413,7 +416,7 @@ class Particle:
             self.z_0freq, self.z_freq = run_fourier()
 
         # Print results
-        if info:
+        if info and self.FreqAnalysis.signal_ok:
             return print(self.FreqAnalysis)
 
     def q_kinetic(self):
@@ -435,6 +438,6 @@ class Particle:
             print("Recalculating θ's zeroth frequency correctly...")
             self.freq_analysis(angle="theta", trim=True, normal=False, remove_bias=True, info=False)
 
-        q_kinetic = abs(self.z_0freq / self.theta_freq)
-
-        return f"Calculated q_kinetic: {q_kinetic:.4f}"
+        if (self.z_0freq is not None) and (self.theta_freq is not None):
+            q_kinetic = abs(self.z_0freq / self.theta_freq)
+            return f"Calculated q_kinetic: {q_kinetic:.4f}"
