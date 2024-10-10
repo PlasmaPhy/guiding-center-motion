@@ -52,7 +52,15 @@ class ConfigFile:
             "linewidth": self.config["drift_plots_width"],
             "color": self.config["drift_plots_color"],
         }
-        self.drift_ylabel_kw = {
+        self.drifts_ylabel_kw = {
+            "rotation": 0,
+            "fontsize": self.config["drift_plots_ylabel_fontsize"],
+        }
+        self.drift_theta_ylabel_kw = {
+            "rotation": 90,
+            "fontsize": self.config["drift_plots_ylabel_fontsize"],
+        }
+        self.drift_zeta_ylabel_kw = {
             "rotation": 0,
             "fontsize": self.config["drift_plots_ylabel_fontsize"],
         }
