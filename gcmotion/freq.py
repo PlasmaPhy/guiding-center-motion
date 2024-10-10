@@ -234,6 +234,6 @@ class FreqAnalysis:
             tuple: The calculated frequencies (or `None` if not calculated correctly.)
         """
         if self.q_kinetic_ready and self.signal_ok:
-            return self.zeroth_freq, self.harmonics[1]
+            return self.zeroth_freq, self.harmonics[0]
         else:
             return (None, None)
