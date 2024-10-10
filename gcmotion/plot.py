@@ -181,7 +181,9 @@ class Plot:
         ax[0].set_xticks(np.linspace(-2 * np.pi, 2 * np.pi, 9), ticks)
         ax[0].set_xlim(theta_lim)
 
-    def Ptheta_drift(self, theta_lim: list[-np.pi, np.pi], **kwargs):
+    def drift(
+        self, angle: Literal["zeta", "theta"] = "theta", lim: list = [-np.pi, np.pi], **kwargs
+    ):
         r"""Draws :math:`\theta - P_\theta` plot.
 
         This method is called internally by ``countour_energy()``
@@ -196,9 +198,17 @@ class Plot:
         canvas = kwargs.get("canvas", None)
         different_colors = kwargs.get("different_colors", False)
 
-        # Set theta lim. Mods all thetas to 2π
-        theta_min, theta_max = theta_lim
-        theta_plot = utils.theta_plot(self.theta, theta_lim)
+        if angle == "theta":
+            q = self.theta
+            P_plot = self.Ptheta / self.psi_wall
+
+        elif angle == "zeta":
+            q = self.z
+            P_plot = self.Pzeta
+
+        # Set theta lim. Mods all thetas or zetas to 2π
+        min, max = lim
+        q_plot = utils.theta_plot(q, lim)
 
         if canvas is None:
             fig = plt.figure(figsize=(6, 4))
@@ -211,14 +221,14 @@ class Plot:
         if different_colors:
             del scatter_kw["color"]
 
-        ax.scatter(theta_plot, self.Ptheta / self.psi_wall, **scatter_kw, zorder=2)
-        ax.set_xlabel(r"$\theta$", **self.Config.drift_xlabel_kw)
-        ax.set_ylabel(r"$P_\theta$", **self.Config.drift_ylabel_kw)
+        ax.scatter(q_plot, P_plot, **scatter_kw, zorder=2)
+        ax.set_xlabel(rf"$\{angle}$", **self.Config.drift_xlabel_kw)
+        ax.set_ylabel(rf"$P_\{angle}$", **self.Config.drift_ylabel_kw)
 
         # Set all xticks as multiples of π, and then re-set xlims (smart!)
         ticks = ["-2π", "-3π/2", "-π", "-π/2", "0", "π/2", "π", "3π/2", "2π"]
         ax.set_xticks(np.linspace(-2 * np.pi, 2 * np.pi, 9), ticks)
-        ax.set_xlim(theta_lim)
+        ax.set_xlim(lim)
 
     def _calcW_grid(
         self,
@@ -304,7 +314,7 @@ class Plot:
         theta_min, theta_max = theta_lim
 
         if plot_drift:
-            self.Ptheta_drift(theta_lim, canvas=canvas)
+            self.drift(angle="theta", theta_lim=theta_lim, canvas=canvas)
 
         label, E_cbar = self._cbar_label(units)
 

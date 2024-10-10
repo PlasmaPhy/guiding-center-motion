@@ -102,7 +102,12 @@ class Plots:
 
             # Plot drifts:
             for p in self.particles:
-                p.plot.Ptheta_drift(theta_lim, canvas=(fig, ax), different_colors=different_colors)
+                p.plot.drift(
+                    angle="theta",
+                    lim=theta_lim,
+                    canvas=(fig, ax),
+                    different_colors=different_colors,
+                )
 
             # Plot starting points
             if plot_initial:
@@ -113,9 +118,11 @@ class Plots:
             nonlocal psi_lim
             if type(psi_lim) is str:
                 if psi_lim == "auto":
-                    psi_lim = ax.get_ylim()
+                    psi_lim = list(ax.get_ylim())
+                    psi_lim[0] = max(psi_lim[0], 0)
+                    psi_lim = tuple(psi_lim)
             else:
-                psi_lim = np.array(psi_lim) * self.psi_wall
+                psi_lim = np.array(psi_lim)
 
             # Just use the already existing method in one of the particles, doesnt matter
             C = p.plot.contour_energy(
@@ -187,6 +194,64 @@ class Plots:
 
             for p in self.particles:
                 p.plot.orbit_point(different_colors=different_colors, labels=labels)
+
+        if params_ok():
+            plot()
+        return
+
+    def poincare(
+        self, angle: Literal["zeta", "theta"] = "theta", lim: list = [-np.pi, np.pi], **kwargs
+    ):
+
+        different_colors = kwargs.get("different_colors", False)
+        plot_initial = kwargs.get("plot_initial", False)
+
+        def params_ok() -> bool:
+            """checks for the validity of the parameters
+
+            Returns:
+                bool: The check result
+            """
+
+            if angle == "theta":
+                same_initial_momenta = "Pz0"
+            elif angle == "zeta":
+                same_initial_momenta = "psi0"
+
+            must_be_the_same = [
+                "R",
+                "a",
+                "q",
+                "Bfield",
+                "Efield",
+                "species",
+                "mu",
+                same_initial_momenta,
+            ]
+            can_be_different = [key for key in self.params.keys() if key not in must_be_the_same]
+
+            if not self._check_multiples(must_be_the_same):
+                print(f"Only the variables {can_be_different} may vary from particle to particle.")
+                return False
+            return True
+
+        def plot():
+            """Does the actual plotting"""
+            # Setup canvas (must be passeed to all methods)
+            fig = plt.figure(figsize=(6, 4), dpi=300)
+            ax = fig.add_subplot(111)
+
+            # Plot drifts:
+            for p in self.particles:
+                p.plot.drift(angle, lim, canvas=(fig, ax), different_colors=different_colors)
+
+            # Plot starting points
+            if plot_initial and angle == "theta":
+                for p in self.particles:
+                    ax.scatter(p.theta0, p.psi0 / p.psi_wall, s=10, c="k", zorder=4)
+            elif plot_initial and angle == "zeta":
+                for p in self.particles:
+                    ax.scatter(p.z0, p.Pz0, s=10, c="k", zorder=4)
 
         if params_ok():
             plot()
