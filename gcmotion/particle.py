@@ -154,7 +154,7 @@ class Particle:
 
         return info_str
 
-    def run(self, info: bool = True, orbit=True):
+    def run(self, info: bool = True, orbit=True, events: list = []):
         r"""Calculates the motion and attributes of the particle.
 
         This is the function that must be called after the initial conditions
@@ -166,11 +166,23 @@ class Particle:
             info (bool, optional): Whether or not to print the particle's
                 calculated attributes. Defaults to True.
         """
-
+        self.events = events
         self._conversion_factors()
         if orbit:
             start = time()
-            self._orbit()
+
+            (
+                self.theta,
+                self.psi,
+                self.psip,
+                self.z,
+                self.rho,
+                self.Ptheta,
+                self.Pzeta,
+                self.t_events,
+                self.t_dense,
+            ) = self._orbit(events=events)
+
             end = time()
             duration = f"{end-start:.4f}"
             self.time_str = f"Orbit calculation time: {duration}s."
@@ -182,7 +194,7 @@ class Particle:
 
         self.plot = Plot(self)
 
-    def _orbit(self):
+    def _orbit(self, events: list = []):
         r"""Calculates the orbit of the particle, as well as
         :math:`P_\theta` and :math:`\psi_p`.
 
@@ -238,28 +250,52 @@ class Particle:
         if self.method == "RK45":
             t_span = (self.tspan[0], self.tspan[-1])
             sol = solve_ivp(
-                dSdt, t_span=t_span, y0=self.ode_init, t_eval=self.tspan, rtol=self.rtol
+                dSdt,
+                t_span=t_span,
+                y0=self.ode_init,
+                t_eval=self.tspan,
+                rtol=self.rtol,
+                events=events,
+                dense_output=bool(events),
             )
-            self.theta = sol.y[0]
-            self.psi = sol.y[1]
-            self.psip = self.q.psip_of_psi(self.psi)
-            self.z = sol.y[3]
-            self.rho = sol.y[4]
+            theta = sol.y[0]
+            psi = sol.y[1]
+            psip = self.q.psip_of_psi(psi)
+            z = sol.y[3]
+            rho = sol.y[4]
+            t_events = sol.t_events
+            t_dense = sol.t
         elif self.method == "lsoda":
             sol = odeint(dSdt, y0=self.ode_init, t=self.tspan, tfirst=True)
-            self.theta = sol.T[0]
-            self.psi = sol.T[1]
-            self.psip = self.q.psip_of_psi(self.psi)
-            self.z = sol.T[3]
-            self.rho = sol.T[4]
+            theta = sol.T[0]
+            psi = sol.T[1]
+            psip = self.q.psip_of_psi(psi)
+            z = sol.T[3]
+            rho = sol.T[4]
         else:
             print("Solver method must be either 'lsoda' or 'RK45'.")
 
         # Calculate Canonical Momenta
-        self.Ptheta = self.psi + self.rho * self.I
-        self.Pzeta = self.rho * self.g - self.psip
+        Ptheta = psi + rho * self.I
+        Pzeta = rho * self.g - psip
+
+        return [theta, psi, psip, z, rho, Ptheta, Pzeta, t_events, t_dense]
 
         self.calculated_orbit = True
+
+    def events(self, key):
+
+        def single_theta_period(t, S):
+            return (S[0] - self.theta0) or (S[1] - self.psi0)
+
+        single_theta_period.terminal = 2
+        single_theta_period.direction = 1
+        events_dict = {"single_theta_period": single_theta_period}
+
+        def event2(t, S):
+            pass
+
+        return events_dict[key]
 
     def _conversion_factors(self):
         r"""Calculates the conversion coeffecient needed to convert from lab to NU
@@ -353,7 +389,7 @@ class Particle:
 
         self.calculated_orbit_type = True
 
-    def freq_analysis(
+    def afreq_analysis(
         self,
         angle: str,
         trim: bool = True,
@@ -419,25 +455,26 @@ class Particle:
         if info and self.FreqAnalysis.signal_ok:
             return print(self.FreqAnalysis)
 
+    def freq_analysis(self):
+
+        # Re-run orbit and stop after a full cycle
+
+        theta, psi, psip, z, rho, Ptheta, Pzeta, t_events, t_dense = self._orbit(events=self.events)
+        t_events = np.array(t_events).flatten()
+
+        # Theta period
+        theta_period = np.diff(t_events)
+        self.theta_freq = 2 * np.pi / theta_period
+
+        dz = abs(np.diff(np.interp(t_events, t_dense, z)))
+        zeta_period = 2 * np.pi * theta_period / dz
+        self.zeta_0freq = 2 * np.pi / zeta_period
+
+        print(f"theta_period {theta_period}")
+        print(f"zeta_period {zeta_period}")
+        print(f"dz {dz}")
+
     def q_kinetic(self):
-        r"""Calculates the :math:`q_{kinetic}` factor.
-
-        Also checks if the frequencies have been calculated in the best way possible. If
-        not, they are re-calculated.
-
-        Returns:
-            str: The calculation results.
-        """
-
-        # Make sure frequencies are calculated correctly
-        if self.z_0freq is None:
-            print("Recalculating ζ's zeroth frequency correctly...")
-            self.freq_analysis(angle="zeta", trim=True, normal=False, remove_bias=True, info=False)
-
-        if self.theta_0freq is None:
-            print("Recalculating θ's zeroth frequency correctly...")
-            self.freq_analysis(angle="theta", trim=True, normal=False, remove_bias=True, info=False)
-
-        if (self.z_0freq is not None) and (self.theta_freq is not None):
-            q_kinetic = abs(self.z_0freq / self.theta_freq)
-            return f"Calculated q_kinetic: {q_kinetic:.4f}"
+        self.q_kinetic = self.zeta_0freq / self.theta_freq
+        print(self.q_kinetic)
+        return f"Calculated q_kinetic: {float(self.q_kinetic):.4f}"
