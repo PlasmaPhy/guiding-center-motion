@@ -7,4 +7,6 @@
 __pycache__
 
 /Wiki.pdf
-αποριες.md
+
+# Notebooks
+*.ipynb
