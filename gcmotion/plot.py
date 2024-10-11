@@ -171,8 +171,8 @@ class Plot:
         ax[0].set_xlabel(r"$\theta$", **self.Config.drift_xlabel_kw)
         ax[1].set_xlabel(r"$\zeta$", **self.Config.drift_xlabel_kw)
 
-        ax[0].set_ylabel(r"$P_\theta$", **self.Config.drift_ylabel_kw)
-        ax[1].set_ylabel(r"$P_ζ$", **self.Config.drift_ylabel_kw)
+        ax[0].set_ylabel(r"$P_\theta$", **self.Config.drifts_ylabel_kw)
+        ax[1].set_ylabel(r"$P_ζ$", **self.Config.drifts_ylabel_kw)
 
         ax[1].set_ylim([-self.psip_wall, self.psip_wall])
 
@@ -201,10 +201,14 @@ class Plot:
         if angle == "theta":
             q = self.theta
             P_plot = self.Ptheta / self.psi_wall
+            y_label = rf"$P_\{angle}/\psi_w$"
+            y_label_config = self.Config.drift_theta_ylabel_kw
 
         elif angle == "zeta":
             q = self.z
             P_plot = self.Pzeta
+            y_label = rf"$P_\{angle}$"
+            y_label_config = self.Config.drift_zeta_ylabel_kw
 
         # Set theta lim. Mods all thetas or zetas to 2π
         min, max = lim
@@ -223,7 +227,7 @@ class Plot:
 
         ax.scatter(q_plot, P_plot, **scatter_kw, zorder=2)
         ax.set_xlabel(rf"$\{angle}$", **self.Config.drift_xlabel_kw)
-        ax.set_ylabel(rf"$P_\{angle}$", **self.Config.drift_ylabel_kw)
+        ax.set_ylabel(y_label, **y_label_config)
 
         # Set all xticks as multiples of π, and then re-set xlims (smart!)
         ticks = ["-2π", "-3π/2", "-π", "-π/2", "0", "π/2", "π", "3π/2", "2π"]
