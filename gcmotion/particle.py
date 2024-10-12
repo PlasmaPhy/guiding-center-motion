@@ -4,10 +4,9 @@ orbit type, and can draw several different plots
 """
 
 import numpy as np
+from loguru import logger as log
 from time import time
-from tqdm import tqdm
 from scipy.integrate import odeint, solve_ivp
-from scipy.fftpack import rfft, rfftfreq
 from math import sqrt, sin, cos
 from .plot import Plot
 from .parabolas import Construct
@@ -15,7 +14,7 @@ from .freq import FreqAnalysis
 from .bfield import MagneticField
 from .efield import ElectricField, Nofield
 from .qfactor import QFactor
-from . import utils
+from . import config
 
 
 class Particle:
@@ -66,8 +65,15 @@ class Particle:
             rtol (float): Relative tolerance of the RK45 solver. Defaults to :math:`10^{-6}`.
         """
 
+        # Setup logger
+        log.remove()
+        fmt = "{time:HH:mm:ss:SSS} | {level} | {message}"
+        log.add("log.txt", delay=True, format=fmt, level="DEBUG", mode="w")
+
+        log.info("Initializing particle...")
+
         # Grab configuration
-        self.Config = utils.ConfigFile()
+        self.configs = config.configs
 
         # Tokamak Configuration
         if Efield is None or isinstance(Efield, Nofield):
@@ -86,16 +92,16 @@ class Particle:
 
         # Particle Constants
         self.species = species
-        self.mass_amu = self.Config.constants[self.species + "_mass_amu"]
-        self.mass_keV = self.Config.constants[self.species + "_mass_keV"]
-        self.mass_kg = self.Config.constants[self.species + "_mass_kg"]
-        self.zeta = self.Config.constants[self.species + "_Z"]
-        self.e = self.Config.constants["elementary_charge"]
+        self.mass_amu = self.configs[self.species + "_mass_amu"]
+        self.mass_keV = self.configs[self.species + "_mass_keV"]
+        self.mass_kg = self.configs[self.species + "_mass_kg"]
+        self.zeta = self.configs[self.species + "_Z"]
+        self.e = self.configs["elementary_charge"]
         self.sign = self.zeta / abs(self.zeta)
 
         # Solver parameters
-        self.method = self.Config.method
-        self.rtol = float(self.Config.rtol)  # Only used in RK45
+        self.method = self.configs["default_method"]
+        self.rtol = float(self.configs["rtol"])  # Only used in RK45
 
         # Initial conditions
         self.mu = mu

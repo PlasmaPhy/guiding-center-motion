@@ -102,15 +102,15 @@ class Construct:
 
         # Top left
         x, y = self.par1._construct(self.xlim)
-        plt.plot(x, y, **self.Config.parabolas_normal_plot_kw)
+        plt.plot(x, y, **self.configs["parabolas_normal_kw"])
 
         # Bottom left
         x, y = self.par2._construct(self.xlim)
-        plt.plot(x, y, linestyle="--", **self.Config.parabolas_dashed_plot_kw)
+        plt.plot(x, y, linestyle="--", **self.configs["parabolas_dashed_kw"])
 
         # Right
         x, y = self.par3._construct(self.xlim)
-        plt.plot(x, y, linestyle="dashdot", **self.Config.parabolas_dashed_plot_kw)
+        plt.plot(x, y, linestyle="dashdot", **self.configs["parabolas_dashed_kw"])
 
         # General plot settings
         top_par = _Parabola(self.abcs[0])
@@ -132,7 +132,7 @@ class Construct:
         foo = _Parabola(self.abcs[1])
         p2 = foo._get_extremum()
 
-        plt.plot([p1[0], p2[0]], [p1[1], p2[1]], **self.Config.vertical_line_plot_kw)
+        plt.plot([p1[0], p2[0]], [p1[1], p2[1]], **self.configs["parabolas_normal_kw"])
 
         # Sideways parabola
         x1 = self.par2._get_extremum()[0]
@@ -151,8 +151,8 @@ class Construct:
         y1_plot = 1 / B1  # upper
         y2_plot = 1 / B2  # lower
 
-        plt.plot(x, y1_plot, **self.Config.parabolas_dashed_plot_kw)
-        plt.plot(x, y2_plot, **self.Config.parabolas_dashed_plot_kw)
+        plt.plot(x, y1_plot, **self.configs["parabolas_dashed_kw"])
+        plt.plot(x, y2_plot, **self.configs["parabolas_dashed_kw"])
 
     def return_abcs(self):
         """Returns the consants of the 3 parabolas as [[...],[...],[...]]

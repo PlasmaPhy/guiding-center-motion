@@ -3,6 +3,8 @@ import vpython as vp
 import numpy as np
 from scipy.signal import argrelextrema as ex
 from tqdm import tqdm
+from . import config
+
 
 spawn_ctx = mp.get_context("spawn")
 
@@ -19,13 +21,11 @@ def animate(cwp, params: dict = {}):
 def run(cwp, params: dict = {}):
 
     # Grab configuration
-    Config = cwp.Config
-    defaults = Config.defaults
-    print(Config.torus_color)
+    configs = config.configs["animation_kw"]
 
-    for key in defaults.keys():
+    for key in configs.keys():
         if key not in params:
-            params[key] = defaults[key]
+            params[key] = configs[key]
 
     percentage = params["percentage"]
     truescale = params["truescale"]
@@ -94,7 +94,9 @@ def run(cwp, params: dict = {}):
         # Vertical axis
         height = 1 * (2 * R)
         pos = [vp.vector(0, -height / 2, 0), +vp.vector(0, height / 2, 0)]
-        vaxis = vp.curve(pos=pos, color=eval("vp.color." + Config.vaxis_color), radius=0.004 * R)
+        vaxis = vp.curve(
+            pos=pos, color=eval("vp.color." + configs["vaxis_color"]), radius=0.004 * R
+        )
 
         # Torus walls
         shape = vp.shapes.circle(radius=float(a), np=60)
@@ -103,7 +105,7 @@ def run(cwp, params: dict = {}):
             pos=vp.vector(0, 0, 0),
             shape=shape,
             path=path,
-            color=eval("vp.color." + Config.torus_color),
+            color=eval("vp.color." + configs["torus_color"]),
             opacity=0.4,
         )
 
@@ -139,8 +141,8 @@ def run(cwp, params: dict = {}):
             pos=vp.vector(0, 0, 0),
             shape=shape,
             path=path,
-            color=eval("vp.color." + Config.flux_surface_color),
-            opacity=Config.flux_surface_opacity,
+            color=eval("vp.color." + configs["flux_surface_color"]),
+            opacity=configs["flux_surface_opacity"],
         )
 
         return flux_surface
@@ -152,7 +154,7 @@ def run(cwp, params: dict = {}):
         p = vp.sphere(
             pos=pos,
             radius=a / 20,
-            color=eval("vp.color." + Config.particle_color),
+            color=eval("vp.color." + configs["particle_color"]),
             make_trail=True,
             trail_radius=R / 1000,
             interval=1,

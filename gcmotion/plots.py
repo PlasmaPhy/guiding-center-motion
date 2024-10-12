@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from .parabolas import Construct
 from . import utils
 from typing import Literal
+from . import config
 
 
 class Plots:
@@ -22,7 +23,7 @@ class Plots:
         self.__dict__ = dict(collection.__dict__)
 
         # Grab configuration
-        self.Config = utils.ConfigFile()
+        self.configs = config.configs
 
     def _check_multiples(self, allowed: list) -> bool:
         """Checks if the given parameters are static or vary from particle to particle.
@@ -141,7 +142,7 @@ class Plots:
             label, _ = p.plot._cbar_label(units)
             cbar_kw = {"linestyle": "-", "zorder": 3}
             if not different_colors:
-                cbar_kw["color"] = self.Config.drift_scatter_kw["color"]
+                cbar_kw["color"] = self.configs["drift_scatter_kw"]["color"]
             cbar = fig.colorbar(C, ax=ax, fraction=0.03, pad=0.2, label=label)
             for p in self.particles:
                 _, E_cbar = p.plot._cbar_label(units)

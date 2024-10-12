@@ -19,9 +19,9 @@ params = {
     "species"     :   "p",
     "mu"          :   10e-5,
     "theta0"      :   0,
-    "psi0"        :   np.linspace(0.1, 0.9, N), #times psi_wall
+    "psi0"        :   np.linspace(0.1, 0.6, N), #times psi_wall
     "z0"          :   0,
-    "Pz0"         :   -0.035,
+    "Pz0"         :   -0.025,
     "t_eval"       :   np.linspace(0, 10000, 100000) # t0, tf, steps
 
     

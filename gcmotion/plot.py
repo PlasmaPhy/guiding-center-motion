@@ -130,21 +130,21 @@ class Plot:
         ax[0].set_title("Time evolution of dynamical variables", c="b")
         ax[5].set_title("Time evolution of canonical momenta", c="b")
 
-        ax[0].scatter(self.t_eval[:points], self.theta[:points], **self.Config.time_scatter_kw)
-        ax[1].scatter(self.t_eval[:points], self.zeta[:points], **self.Config.time_scatter_kw)
-        ax[2].scatter(self.t_eval[:points], self.psi[:points], **self.Config.time_scatter_kw)
-        ax[3].scatter(self.t_eval[:points], self.psip[:points], **self.Config.time_scatter_kw)
-        ax[4].scatter(self.t_eval[:points], self.rho[:points], **self.Config.time_scatter_kw)
-        ax[5].scatter(self.t_eval[:points], self.Ptheta[:points], **self.Config.time_scatter_kw)
-        ax[6].scatter(self.t_eval[:points], self.Pzeta[:points], **self.Config.time_scatter_kw)
+        ax[0].scatter(self.t_eval[:points], self.theta[:points], **self.configs["time_plots_kw"])
+        ax[1].scatter(self.t_eval[:points], self.zeta[:points], **self.configs["time_plots_kw"])
+        ax[2].scatter(self.t_eval[:points], self.psi[:points], **self.configs["time_plots_kw"])
+        ax[3].scatter(self.t_eval[:points], self.psip[:points], **self.configs["time_plots_kw"])
+        ax[4].scatter(self.t_eval[:points], self.rho[:points], **self.configs["time_plots_kw"])
+        ax[5].scatter(self.t_eval[:points], self.Ptheta[:points], **self.configs["time_plots_kw"])
+        ax[6].scatter(self.t_eval[:points], self.Pzeta[:points], **self.configs["time_plots_kw"])
 
-        ax[0].set_ylabel(r"$\theta(t)$", **self.Config.time_ylabel_kw)
-        ax[1].set_ylabel(r"$\zeta(t)$", **self.Config.time_ylabel_kw)
-        ax[2].set_ylabel(r"$\psi(t)$", **self.Config.time_ylabel_kw)
-        ax[3].set_ylabel(r"$\psi_p(t)$", **self.Config.time_ylabel_kw)
-        ax[4].set_ylabel(r"$\rho(t)$", **self.Config.time_ylabel_kw)
-        ax[5].set_ylabel(r"$P_\theta(t)$", **self.Config.time_ylabel_kw)
-        ax[6].set_ylabel(r"$P_\zeta(t)$", **self.Config.time_ylabel_kw)
+        ax[0].set_ylabel(r"$\theta(t)$", **self.configs["time_plots_ylabel_kw"])
+        ax[1].set_ylabel(r"$\zeta(t)$", **self.configs["time_plots_ylabel_kw"])
+        ax[2].set_ylabel(r"$\psi(t)$", **self.configs["time_plots_ylabel_kw"])
+        ax[3].set_ylabel(r"$\psi_p(t)$", **self.configs["time_plots_ylabel_kw"])
+        ax[4].set_ylabel(r"$\rho(t)$", **self.configs["time_plots_ylabel_kw"])
+        ax[5].set_ylabel(r"$P_\theta(t)$", **self.configs["time_plots_ylabel_kw"])
+        ax[6].set_ylabel(r"$P_\zeta(t)$", **self.configs["time_plots_ylabel_kw"])
         ax[6].set_ylim([-self.psip_wall, self.psip_wall])
 
         plt.xlabel("$t$")
@@ -166,14 +166,14 @@ class Plot:
         fig.tight_layout()
         fig.suptitle(r"Drift orbits of $P_\theta - \theta$ and $P_\zeta - \zeta$")
 
-        ax[0].scatter(theta_plot, self.Ptheta, **self.Config.drift_scatter_kw)
-        ax[1].plot(self.zeta, self.Pzeta, **self.Config.drift_plot_kw)
+        ax[0].scatter(theta_plot, self.Ptheta, **self.configs["drift_scatter_kw"])
+        ax[1].scatter(self.zeta, self.Pzeta, **self.configs["drift_scatter_kw"])
 
-        ax[0].set_xlabel(r"$\theta$", **self.Config.drift_xlabel_kw)
-        ax[1].set_xlabel(r"$\zeta$", **self.Config.drift_xlabel_kw)
+        ax[0].set_xlabel(r"$\theta$", fontsize=self.configs["drift_plots_xlabel_fontsize"])
+        ax[1].set_xlabel(r"$\zeta$", fontsize=self.configs["drift_plots_xlabel_fontsize"])
 
-        ax[0].set_ylabel(r"$P_\theta$", **self.Config.drifts_ylabel_kw)
-        ax[1].set_ylabel(r"$P_ζ$", **self.Config.drifts_ylabel_kw)
+        ax[0].set_ylabel(r"$P_\theta$", fontsize=self.configs["drift_plots_ylabel_fontsize"])
+        ax[1].set_ylabel(r"$P_ζ$", fontsize=self.configs["drift_plots_ylabel_fontsize"])
 
         ax[1].set_ylim([-self.psip_wall, self.psip_wall])
 
@@ -203,13 +203,13 @@ class Plot:
             q = self.theta
             P_plot = self.Ptheta / self.psi_wall
             y_label = rf"$P_\{angle}/\psi_w$"
-            y_label_config = self.Config.drift_theta_ylabel_kw
+            fontsize = self.configs["drift_plots_ylabel_fontsize"]
 
         elif angle == "zeta":
             q = self.z
             P_plot = self.Pzeta
             y_label = rf"$P_\{angle}$"
-            y_label_config = self.Config.drift_zeta_ylabel_kw
+            fontsize = self.configs["drift_plots_ylabel_fontsize"]
 
         # Set theta lim. Mods all thetas or zetas to 2π
         min, max = lim
@@ -222,13 +222,13 @@ class Plot:
         else:
             fig, ax = canvas
 
-        scatter_kw = self.Config.drift_scatter_kw
+        scatter_kw = self.configs["drift_scatter_kw"]
         if different_colors:
             del scatter_kw["color"]
 
         ax.scatter(q_plot, P_plot, **scatter_kw, zorder=2)
-        ax.set_xlabel(rf"$\{angle}$", **self.Config.drift_xlabel_kw)
-        ax.set_ylabel(y_label, **y_label_config)
+        ax.set_xlabel(rf"$\{angle}$", fontsize=self.configs["drift_plots_xlabel_fontsize"])
+        ax.set_ylabel(y_label, fontsize=fontsize)
 
         # Set all xticks as multiples of π, and then re-set xlims (smart!)
         ticks = ["-2π", "-3π/2", "-π", "-π/2", "0", "π/2", "π", "3π/2", "2π"]
@@ -337,7 +337,7 @@ class Plot:
         psi_max = psi_lim[1]
 
         # Calculate Energy values
-        grid_density = self.Config.contour_grid_density
+        grid_density = self.configs["contour_grid_density"]
         theta, psi = np.meshgrid(
             np.linspace(theta_min, theta_max, grid_density),
             np.linspace(psi_min, psi_max, grid_density),
@@ -347,12 +347,12 @@ class Plot:
 
         # Create Figure
         if levels is None:  # If non is given
-            levels = self.Config.contour_levels_default
+            levels = self.configs["contour_levels_default"]
         contour_kw = {
             "vmin": span[0],
             "vmax": span[1],
             "levels": levels,
-            "cmap": self.Config.contour_cmap,
+            "cmap": self.configs["contour_cmap"],
             "zorder": 1,
         }
 
@@ -409,11 +409,11 @@ class Plot:
         if self.has_efield:
             return
 
-        orbit_point_kw = self.Config.orbit_point_kw.copy()
+        orbit_point_kw = self.configs["orbit_point_kw"]
         if different_colors:
             del orbit_point_kw["markerfacecolor"]
 
-        plt.plot(self.orbit_x, self.orbit_y, **orbit_point_kw)
+        plt.scatter(self.orbit_x, self.orbit_y, **orbit_point_kw)
 
         if labels:
             label = "  Particle " + f"({self.t_or_p[0]}-{self.l_or_c[0]})"
@@ -497,22 +497,22 @@ class Plot:
         ax[0].scatter(
             np.linspace(0, 2 * np.pi, 1000),
             self.atorus * np.ones(1000),
-            **self.Config.torus2d_wall_kw,
+            **self.configs["torus2d_wall_kw"],
         )
         ax[1].scatter(
             np.linspace(0, 2 * np.pi, 1000),
             Rin * np.ones(1000),
-            **self.Config.torus2d_wall_kw,
+            **self.configs["torus2d_wall_kw"],
         )
         ax[1].scatter(
             np.linspace(0, 2 * np.pi, 1000),
             Rout * np.ones(1000),
-            **self.Config.torus2d_wall_kw,
+            **self.configs["torus2d_wall_kw"],
         )
 
         # Orbits
-        ax[0].scatter(self.theta_torus, r_plot1, **self.Config.torus2d_orbit_kw, zorder=-1)
-        ax[1].scatter(self.z_torus, r_plot2, **self.Config.torus2d_orbit_kw, zorder=-1)
+        ax[0].scatter(self.theta_torus, r_plot1, **self.configs["torus2d_orbit_kw"], zorder=-1)
+        ax[1].scatter(self.z_torus, r_plot2, **self.configs["torus2d_orbit_kw"], zorder=-1)
 
         ax[0].set_ylim(bottom=0)
         ax[1].set_ylim(bottom=0)
@@ -551,7 +551,7 @@ class Plot:
         # Configure torus dimensions and orbit and store internally
         self._toruspoints(percentage=percentage, truescale=truescale)
 
-        custom_kw = self.Config.torus3d_orbit_kw.copy()
+        custom_kw = self.configs["torus3d_orbit_kw"]
 
         if hd:
             dpi = 900
@@ -600,7 +600,7 @@ class Plot:
             z_torus_wall,
             rstride=3,
             cstride=3,
-            **self.Config.torus3d_wall_kw,
+            **self.configs["torus3d_wall_kw"],
         )
         ax.set_axis_off()
         ax.set_facecolor(bg_color)
@@ -633,7 +633,7 @@ class Plot:
 
             # Time evolution plot
             ax_time = fig.add_subplot(211)
-            ax_time.scatter(t_signal, signal, **self.Config.time_scatter_kw)
+            ax_time.scatter(t_signal, signal, **self.configs["time_plots_kw"])
             ax_time.set_xlabel("Time [s]")
             ax_time.set_ylabel("Amplitude (rads)")
 
