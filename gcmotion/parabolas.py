@@ -1,92 +1,62 @@
-"""
-Constructs the parabolas that classify each orbit type
-======================================================
-
-``OrbitParabolas`` does all the work internally.
-"""
-
 import numpy as np
 import matplotlib.pyplot as plt
-from .efield import ElectricField
-from . import utils
 
 
-class OrbitParabolas:
-    r"""
-    Constructs 3 parabolas  :math:`ax^2 + bx + c = 0`, and finds the special points.
-
-    Both x and y are normalized, :math:`x = P_\zeta/\psi_{p,wall}` and 
-    :math:`y=\mu B_0/E.`
-
-    .. note::
-        To change the parabolas, go to ``__init__()`` and change the constants between
-        the dashed comments.
+class Construct:
+    """Constructs the orbit type parabolas, as well as the
+    trapped-passing boundary and plots them.
     """
 
-    def __init__(self, 
-                R: float, a: float, 
-                mu: float, Bfield: list, Efield: ElectricField, 
-                Volts_to_NU: float,
-                plot: bool = True):
-        """Constructs the 3 orbit type parabolas and calculates the special points.
+    def __init__(self, cwp, get_abcs=False, limit_axis=True):
+        r"""Copies attributes from cwp to self.
 
-        :param R: The tokamak's major radius in [m]
-        :param a: The tokamak's minor radius in [m]
-        :param mu: magnetic moment
-        :param B: The toroidal and poloidal currents, and the field
-            magnitude (in [T]) of the magnetic field B, as in
-            :math:`[g, I, B_0]`.
-        :param E: Electric Field Object that supports query methods for getting
-            values for the field itself and some derivatives of
-            its potential.
-        :param Volts_to_NU: the conversion factor. Must be passed as cwp.Volts_to_NU
-            since it is species-dependant.
-        :param plot: Whether or not to plot the parabolas. Must be specified since
-            the constructed parabolas are also used internally to calculate the
-            obrit type.
+        The instance itself is initialized internally by the Plot class, and
+        should not be called by the user.
+
+        Args:
+            cwp (Particle): The Current Working Particle
         """
-        # Grab configuration
-        self.Config = utils.ConfigFile()
+        self.__dict__ = dict(cwp.__dict__)
+        self.get_abcs = get_abcs
+        self.limit_axis = limit_axis
+        self._setup()
 
-        self.R = R
-        self.a = a
-        self.mu = mu
-        self.I, self.g, self.B0 = Bfield
-        self.Efield = Efield
-        self.r_wall = self.a / self.R # normalized to R
-        self.psi_wall = (self.r_wall) ** 2 / 2  
-        self.Volts_to_NU = Volts_to_NU
+        if self.get_abcs:  # Just get the coefficients and return
+            self.return_abcs()
+            return
 
-        self.B0 = 1
-        self.Bmin = self.B0 * (1 - np.sqrt(2 * self.psi_wall))  # "Bmin occurs at psip_wall, θ = 0"
-        self.Bmax = self.B0 * (1 + np.sqrt(2 * self.psi_wall))  # "Bmax occurs at psip_wall, θ = π"
+        self._plot_parabolas()
+        self._plot_tp_boundary()
 
-        # Electric Potential Components:
-        self.Phi0 = self.Efield.Phi_of_psi(0) * self.Volts_to_NU
-        self.Phi_wall = self.Efield.Phi_of_psi(self.psi_wall) * self.Volts_to_NU
-        m = 1
+    def _setup(self):
+        """Calculates the parabolas' constants, x-intercepts,
+        maximums, and sets the x-limits
+        """
+        mu, psi_wall, g = self.mu, self.psi_wall, self.g
+
+        Bmin = 1 - np.sqrt(2 * psi_wall)  # "Bmin occurs at psip_wall, θ = 0"
+        Bmax = 1 + np.sqrt(2 * psi_wall)  # "Bmax occurs at psip_wall, θ = π"
+
         # Parabolas constants [a, b, c]
         # __________________________________________________________
         # Top left
-        self.E1 = mu * self.Bmin + self.Phi_wall
+        E1 = mu * Bmin
         abc1 = [
-            -self.B0 * self.Bmin * self.psi_wall**2 / (2 * self.g**2 * self.E1 * m),
-            -self.B0 * self.Bmin * self.psi_wall**2 / (self.g**2 * self.E1 * m),
-            -self.B0 * self.Bmin * self.psi_wall**2 / (2 * self.g**2 * self.E1 * m)
-            + self.B0 / self.Bmin,
+            -Bmin * psi_wall**2 / (2 * g**2 * E1),
+            -Bmin * psi_wall**2 / (g**2 * E1),
+            -Bmin * psi_wall**2 / (2 * g**2 * E1) + 1 / Bmin,
         ]
         # Bottom left
-        self.E2 = mu * self.Bmax + self.Phi_wall
+        E2 = mu * Bmax
         abc2 = [
-            -self.B0 * self.Bmax * self.psi_wall**2 / (2 * self.g**2 * self.E2 * m),
-            -self.B0 * self.Bmax * self.psi_wall**2 / (self.g**2 * self.E2 * m),
-            -self.B0 * self.Bmax * self.psi_wall**2 / (2 * self.g**2 * self.E2 * m)
-            + self.B0 / self.Bmax,
+            -Bmax * psi_wall**2 / (2 * g**2 * E2),
+            -Bmax * psi_wall**2 / (g**2 * E2),
+            -Bmax * psi_wall**2 / (2 * g**2 * E2) + 1 / Bmax,
         ]
         # Right (Magnetic Axis)
-        self.E3 = mu * self.B0 + self.Phi0
+        E3 = mu
         abc3 = [
-            -(self.B0**2) * self.psi_wall**2 / (2 * self.g**2 * self.E3 * m),
+            -(psi_wall**2) / (2 * g**2 * E3),
             0,
             1,
         ]
@@ -95,10 +65,13 @@ class OrbitParabolas:
         # Calculate all x-intercepts and use the 2 outermost
         self.abcs = [abc1, abc2, abc3]
 
-        x_intercepts = np.array([])
-        self.par1 = Parabola(self.abcs[0])  # Top Left
-        self.par2 = Parabola(self.abcs[1])  # Bottom Left
-        self.par3 = Parabola(self.abcs[2])  # Right
+        if self.get_abcs:
+            return
+
+        x_intercepts = np.array(3)
+        self.par1 = _Parabola(self.abcs[0])  # Top Left
+        self.par2 = _Parabola(self.abcs[1])  # Bottom Left
+        self.par3 = _Parabola(self.abcs[2])  # Right
 
         for par in [self.par1, self.par2, self.par3]:
             if par.discriminant <= 0:
@@ -114,16 +87,15 @@ class OrbitParabolas:
         )
 
         extremums = np.array(
-            [self.par1._get_extremum()[1], self.par2._get_extremum()[1], self.par3._get_extremum()[1]]
+            [
+                self.par1._get_extremum()[1],
+                self.par2._get_extremum()[1],
+                self.par3._get_extremum()[1],
+            ]
         )
 
-        self.xlim = [x_intercepts.min(), x_intercepts.max()]
+        self.xlim = [1.02 * x_intercepts.min(), 1.02 * x_intercepts.max()]
         self.ylim = [0, 1.1 * extremums.max()]
-
-        #Run
-        if plot:
-            self._plot_parabolas()
-            self._plot_tp_boundary()
 
     def _plot_parabolas(self):
         """Plots the 3 parabolas."""
@@ -141,10 +113,12 @@ class OrbitParabolas:
         plt.plot(x, y, linestyle="dashdot", **self.Config.parabolas_dashed_plot_kw)
 
         # General plot settings
-        plt.gca().set_xlim(self.xlim)
-        top_par = Parabola(self.abcs[0])
+        top_par = _Parabola(self.abcs[0])
         _, top = top_par._get_extremum()
-        plt.gca().set_ylim(bottom=self.ylim[0], top=self.ylim[1])
+        plt.gca().set_ylim(bottom=self.ylim[0])
+        if self.limit_axis:
+            plt.gca().set_xlim(self.xlim)
+            plt.gca().set_ylim(top=self.ylim[1])
         plt.ylabel(r"$\dfrac{\mu B_0}{E}$", rotation=0)
         plt.xlabel(r"$P_\zeta/\psi_p$")
         plt.title(r"Orbit types in the plane of $P_\zeta - \mu$ for fixed energy.", c="b")
@@ -153,9 +127,9 @@ class OrbitParabolas:
         """Plots the Trapped-Passing Boundary."""
 
         # Vertical line
-        foo = Parabola(self.abcs[0])
+        foo = _Parabola(self.abcs[0])
         p1 = foo._get_extremum()
-        foo = Parabola(self.abcs[1])
+        foo = _Parabola(self.abcs[1])
         p2 = foo._get_extremum()
 
         plt.plot([p1[0], p2[0]], [p1[1], p2[1]], **self.Config.vertical_line_plot_kw)
@@ -180,24 +154,28 @@ class OrbitParabolas:
         plt.plot(x, y1_plot, **self.Config.parabolas_dashed_plot_kw)
         plt.plot(x, y2_plot, **self.Config.parabolas_dashed_plot_kw)
 
-    def get_abcs(self):
+    def return_abcs(self):
         """Returns the consants of the 3 parabolas as [[...],[...],[...]]
-        For sanity check and debugging, really.
+        Used in determining particle's orbit type.
         """
         return self.abcs
 
 
-class Parabola:
-    """Creates a general-form parabola :math:`ax^2 + bx + c = 0`, 
+# ______________________
+class _Parabola:
+    """Creates a general-form parabola :math:`ax^2 + bx + c = 0`,
     calculates intercepts and extremums.
+
+    Should only be used internally by the class ``Construct``
 
     Both x and y are normalized, :math:`x = Pz/psip_wall` and :math:`y=μB0/E`.
     """
 
-    def __init__(self, abc: np.array):  # Ready to commit
+    def __init__(self, abc: np.array):
         """Initialization and intercepts/extremums calculation.
 
-        :param abc: 1x3 array containing the 3 constants.
+        Args:
+            abc (np.array): 1x3 array containing the 3 constants.
         """
         self.a = abc[0]
         self.b = abc[1]
@@ -224,15 +202,20 @@ class Parabola:
             self.max_pos = -self.b / (2 * self.a)
             self.max = self.a * self.max_pos**2 + self.b * self.max_pos + self.c
 
-        # Grab configuration
-        # self.Config = utils.ConfigFile()
+    def _get_x_intercepts(self):
+        """Returns the 2 x-intercepts as an array.
 
-    def _get_x_intercepts(self):  # Should fix the case that no intercepts exist
-        """Returns the 2 x-intercepts as an array"""
+        Returns:
+            np.array: 1D np.array containing the 2 x-intercepts.
+        """
         return self.x_intercepts
 
     def _get_extremum(self):
-        """Returns the extremum point as (x,y)"""
+        """Returns the extremum point as (x,y)
+
+        Returns:
+            2-tuple: The extremum point
+        """
         if self.a > 0:
             return [self.min_pos, self.min]
         else:
@@ -245,9 +228,12 @@ class Parabola:
             xlim (list): The x interval. Determined by the plotter
                     so that all 3 parabolas are constructed at the
                     same interval.
+
+        Returns:
+            2-tuple of 1D np.arrays: The x and y to be plotted.
         """
 
         x = np.linspace(xlim[0], xlim[1], 1000)
         y = self.a * x**2 + self.b * x + self.c
 
-        return [x, y]
+        return (x, y)

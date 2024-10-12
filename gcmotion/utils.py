@@ -30,6 +30,9 @@ class ConfigFile:
             "p_Z": self.config["p_Z"],
         }
 
+        # Solver
+        self.method = self.config["method"]
+        self.rtol = self.config["relative_tolerance"]
         # Time plots
         self.time_scatter_kw = {
             "s": self.config["time_plots_size"],
@@ -49,7 +52,15 @@ class ConfigFile:
             "linewidth": self.config["drift_plots_width"],
             "color": self.config["drift_plots_color"],
         }
-        self.drift_ylabel_kw = {
+        self.drifts_ylabel_kw = {
+            "rotation": 0,
+            "fontsize": self.config["drift_plots_ylabel_fontsize"],
+        }
+        self.drift_theta_ylabel_kw = {
+            "rotation": 90,
+            "fontsize": self.config["drift_plots_ylabel_fontsize"],
+        }
+        self.drift_zeta_ylabel_kw = {
             "rotation": 0,
             "fontsize": self.config["drift_plots_ylabel_fontsize"],
         }
@@ -104,6 +115,14 @@ class ConfigFile:
         self.contour_levels_default = self.config["contour_levels_default"]
         self.contour_cmap = self.config["contour_cmap"]
 
+        # Animation
+        self.torus_color = self.config["torus_color"]
+        self.vaxis_color = self.config["vaxis_color"]
+        self.particle_color = self.config["particle_color"]
+        self.flux_surface_color = self.config["flux_surface_color"]
+        self.flux_surface_opacity = self.config["flux_surface_opacity"]
+        self.defaults = self.config["defaults"]
+
     def __getitem__(self, kw):
         """Makes object subscriptable
 
@@ -125,6 +144,7 @@ def theta_plot(theta, theta_lim=[0, 2 * np.pi]):
         theta_plot = theta_plot - 2 * np.pi * (theta_plot > np.pi)
         return
     return theta_plot
+
 
 def reload():
     for mod in [mod for name, mod in sys.modules.items() if "gcmotion" in name]:

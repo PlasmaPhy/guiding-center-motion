@@ -29,7 +29,7 @@
 
 6. Για να δημιουργήσουμε ένα καινούριο σωματίδιο, γράφουμε:
     
-        Electron1 = Particle.Particle(species, init_cond, mu, tspan, q, B, Efield, psi_wall)
+        Electron1 = Particle.Particle(species, init_cond, mu, t_eval, q, B, Efield, psi_wall)
 
     Με αυτόν τον τρόπο μπορούμε να δημιουργήσουμε όσα σωματίδια θέλουμε με ξεχωριστές αρχικές συνθήκες το καθένα, χωρίς να διαγράφουμε τα παλιά. Για να επιλέξουμε το σωματίδιο του οποίου τα αποτελέσματα θέλουμε, το θέτουμε ως current working particle (cwp):
 
