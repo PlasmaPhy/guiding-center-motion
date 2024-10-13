@@ -1,8 +1,7 @@
 import sys
-import yaml
 import importlib
 import numpy as np
-from pathlib import Path
+from . import logger
 
 
 def theta_plot(theta, theta_lim=[0, 2 * np.pi]):
@@ -23,3 +22,4 @@ def theta_plot(theta, theta_lim=[0, 2 * np.pi]):
 def reload():
     for mod in [mod for name, mod in sys.modules.items() if "gcmotion" in name]:
         importlib.reload(mod)
+    logger.info("Reloaded all gcm files.\n")

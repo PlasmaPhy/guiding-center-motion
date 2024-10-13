@@ -4,7 +4,6 @@ orbit type, and can draw several different plots
 """
 
 import numpy as np
-from loguru import logger as log
 from time import time
 from scipy.integrate import odeint, solve_ivp
 from math import sqrt, sin, cos
@@ -14,7 +13,7 @@ from .freq import FreqAnalysis
 from .bfield import MagneticField
 from .efield import ElectricField, Nofield
 from .qfactor import QFactor
-from . import config
+from . import config, logger
 
 
 class Particle:
@@ -37,7 +36,7 @@ class Particle:
         Bfield: MagneticField,
         Efield: ElectricField,
         method: str = "RK45",
-        rtol: float = 10e-6,
+        rtol: float = 10e-8,
     ):
         r"""Initializes particle and grabs configuration.
 
@@ -64,85 +63,149 @@ class Particle:
                 Defaults to 'RK45'.
             rtol (float): Relative tolerance of the RK45 solver. Defaults to :math:`10^{-6}`.
         """
+        logger.info("--------Initializing particle--------")
 
-        # Setup logger
-        log.remove()
-        fmt = "{time:HH:mm:ss:SSS} | {level} | {message}"
-        log.add("log.txt", delay=True, format=fmt, level="DEBUG", mode="w")
+        def grab_configuration():
+            """Attempt to import the config Dictionary."""
 
-        log.info("Initializing particle...")
+            logger.info("Attempting to grab configuration.")
+            try:
+                self.configs = config.configs
+                logger.info("--> Grabbed configuration successfully.")
+            except (IOError, ValueError, NameError, OSError):
+                logger.error("--> Failed grabbing configuration.")
 
-        # Grab configuration
-        self.configs = config.configs
+        def setup_tokamak():
+            """Sets up tokamak-related attributes."""
 
-        # Tokamak Configuration
-        if Efield is None or isinstance(Efield, Nofield):
-            self.Efield = Nofield()
-            self.has_efield = False
-        else:
-            self.Efield = Efield
-            self.has_efield = True
-        self.Bfield = Bfield
-        self.R, self.a = R, a
-        self.I, self.g, self.B0 = self.Bfield.I, self.Bfield.g, self.Bfield.B0
-        self.q = q
-        self.r_wall = self.a / self.R
-        self.psi_wall = (self.r_wall) ** 2 / 2  # normalized to R
-        self.psip_wall = self.q.psip_of_psi(self.psi_wall)
+            logger.info("Setting up Tokamak...")
 
-        # Particle Constants
-        self.species = species
-        self.mass_amu = self.configs[self.species + "_mass_amu"]
-        self.mass_keV = self.configs[self.species + "_mass_keV"]
-        self.mass_kg = self.configs[self.species + "_mass_kg"]
-        self.zeta = self.configs[self.species + "_Z"]
-        self.e = self.configs["elementary_charge"]
-        self.sign = self.zeta / abs(self.zeta)
+            # Dimensions
+            self.R, self.a = R, a
 
-        # Solver parameters
-        self.method = self.configs["default_method"]
-        self.rtol = float(self.configs["rtol"])  # Only used in RK45
+            logger.debug(f"\tTokamak dimensions: R = {self.R}, a = {self.a}")
 
-        # Initial conditions
-        self.mu = mu
-        self.theta0 = init_cond[0]
-        init_cond[1] *= self.psi_wall  # Normalize it to psi_wall
-        self.psi0 = init_cond[1]
-        self.z0 = init_cond[2]
-        self.Pz0 = init_cond[3]
-        self.psip0 = q.psip_of_psi(self.psi0)
-        self.t_eval = t_eval
-        self.t_eval_given = self.t_eval.copy()  # When re-running _orbit
-        self.rho0 = self.Pz0 + self.psip0  # Pz0 + psip0
-        init_cond.insert(2, self.psip0)
-        init_cond.insert(5, self.rho0)
-        self.ode_init = [self.theta0, self.psi0, self.psip0, self.z0, self.rho0]
+            # Objects
+            self.q = q
+            self.Bfield = Bfield
+            if Efield is None or isinstance(Efield, Nofield):
+                self.Efield = Nofield()
+                self.has_efield = False
+            else:
+                self.Efield = Efield
+                self.has_efield = True
 
-        # psi_p > 0.5 warning
-        if self.psip_wall >= 0.5:
-            print(
-                f"WARNING: psip_wall = {self.psip_wall} >= 0,5."
-                + "Parabolas and other stuff will probably not work"
+            logger.debug(f"\t'{self.q.id}' qfactor used with parameters {self.q.params}")
+            logger.debug(f"\t'{self.Bfield.id}' Bfield used with parameters {self.Bfield.params}")
+            logger.debug(f"\t'{self.Efield.id}' Efield used with parameters {self.Efield.params}")
+
+            self.r_wall = self.a / self.R
+            self.psi_wall = (self.r_wall) ** 2 / 2  # normalized to R
+            self.psip_wall = self.q.psip_of_psi(self.psi_wall)
+
+            # psi_p > 0.5 warning
+            if self.psip_wall >= 0.5:
+                logger.warning(
+                    f"\tWARNING: psip_wall = {self.psip_wall:.5g} >= 0,5."
+                    + "Parabolas and other stuff will probably not work"
+                )
+
+            logger.debug(
+                f"\tDerivative quantities: r_wall = {self.r_wall:.5g}, psi_wall = {self.psi_wall:.5g}"
+                + f" (CAUTION: normalised to R), psip_wall = {self.psip_wall:.5g}"
             )
 
-        # Logic variables (must run in this order)
-        self.calculated_conversion_factors = False
-        self.calculated_orbit = False
-        self.calculated_energies = False
-        self.calculated_orbit_type = False
-        self.t_or_p = "Unknown"
-        self.l_or_c = "Unknown"
-        self.percentage_calculated = 0
+            logger.info("--> Tokamak setup successful.")
 
-        # Stored to avoid attribute errors
-        self.z_0freq = self.z_freq = self.theta_0freq = self.theta_freq = None
+        def setup_constants():
+            """Grabs particle's constants from ``config.py``"""
+
+            logger.info("Setting up particle's constants...")
+
+            self.species = species
+            self.mass_amu = self.configs[self.species + "_mass_amu"]
+            self.mass_keV = self.configs[self.species + "_mass_keV"]
+            self.mass_kg = self.configs[self.species + "_mass_kg"]
+            self.zeta = self.configs[self.species + "_Z"]
+            self.e = self.configs["elementary_charge"]
+            self.sign = self.zeta / abs(self.zeta)
+
+            logger.debug(f"\tParticle is of species '{self.species}'.")
+            logger.info("--> Particle's constants setup successful")
+
+        def setup_solver():
+            """Sets up the solver and its parameters"""
+
+            logger.info("Setting up solver parameters...")
+
+            if method in ["RK45", "lsoda"] and isinstance(rtol, (int, float)):
+                self.method = method
+                self.rtol = rtol
+            else:
+                logger.warning("Invalid passed solver method. Using defaults...")
+                self.method = self.configs["default_method"]
+                self.rtol = float(self.configs["rtol"])  # Only used in RK45
+
+            logger.debug(
+                f"\tUsing solver method '{self.method}', with relative tolerance of {self.rtol} (only used by RK45)."
+            )
+            logger.info("--> Solver setup successful.")
+
+        def setup_init_cond():
+            """Sets up the particles initial condition and parameters, as well as the solver's S0."""
+
+            logger.info("Setting up particle's initial conditions...")
+
+            self.mu = mu
+            self.theta0 = init_cond[0]
+            init_cond[1] *= self.psi_wall  # CAUTION! Normalize it to psi_wall
+            self.psi0 = init_cond[1]
+            self.z0 = init_cond[2]
+            self.Pz0 = init_cond[3]
+            self.psip0 = q.psip_of_psi(self.psi0)
+            self.t_eval = t_eval
+            self.t_eval_given = self.t_eval.copy()  # When re-running _orbit
+            self.rho0 = self.Pz0 + self.psip0  # Pz0 + psip0
+            self.ode_init = [self.theta0, self.psi0, self.z0, self.rho0]
+
+            formatted_ode_init = [float(f"{_:.5g}") for _ in self.ode_init]
+            ode_init_dict = dict(zip(["theta0", "psi0", "z0", "rho0"], formatted_ode_init))
+
+            logger.debug(f"\tSolver initial conditions: {ode_init_dict}.")
+            logger.debug(f"\tOther initial conditions: Pz0 = {self.Pz0}, psip0 = {self.psip0}")
+            logger.debug(
+                f"\tParameters: μ = {self.mu:.2e}, teval(t0, tf, steps) = ({self.t_eval[0]}, {self.t_eval[-1]}, {len(self.t_eval)})"
+            )
+            logger.info("--> Initial conditions setup successful.")
+
+        def setup_logic_flags():
+            """Sets up logic flags and initializes variables that must have an initial value"""
+
+            logger.info("Setting up logic flags...")
+
+            self.calculated_conversion_factors = False
+            self.calculated_energies = False
+            self.calculated_orbit_type = False
+            self.calculated_orbit = False
+            self.t_or_p = "Unknown"
+            self.l_or_c = "Unknown"
+            self.percentage_calculated = 0
+
+            # Stored initially to avoid attribute errors
+            self.z_0freq = self.z_freq = self.theta_0freq = self.theta_freq = None
+
+            logger.info("--> Logic flags setup successful.")
+
+        grab_configuration()
+        setup_tokamak()
+        setup_constants()
+        setup_solver()
+        setup_init_cond()
+        setup_logic_flags()
+
+        logger.info("--------Particle Initialization Completed--------\n")
 
     def __str__(self):
-
-        if self.has_efield:
-            orbit_type_str = "Cannot calculate (Electic field is non-zero)"
-        else:
-            orbit_type_str = f"{self.t_or_p} - {self.l_or_c}"
 
         info_str = (
             "Constants of motion:\n"
@@ -152,7 +215,7 @@ class Particle:
             + f"\tToroidal Momenta:\t\tPζ = {self.Pz0}\n\n"
             + "Other Quantities:\n"
             + f'\tParticle of Species:\t\t"{self.species}"\n'
-            + f"\tOrbit Type:\t\t\t{orbit_type_str}\n"
+            + f"\tOrbit Type:\t\t\t{self.orbit_type_str}\n"
             + f"\tMajor Radius:\t\t\tR = {self.R} meters\n"
             + f"\tMinor Radius:\t\t\tα = {self.a} meters\n"
             + "\tToroidal Flux at wall:\t\tψ = {:n}\n".format(self.psi_wall)
@@ -175,7 +238,11 @@ class Particle:
             info (bool, optional): Whether or not to print the particle's
                 calculated attributes. Defaults to True.
         """
+        logger.info("--------Particle's 'run' routine is called.---------")
+
         self._conversion_factors()
+        self._energies()
+        self._orbit_type()
 
         if orbit:
             start = time()
@@ -194,15 +261,21 @@ class Particle:
 
             end = time()
             duration = f"{end-start:.4f}"
+            self.calculated_orbit = True
             self.time_str = f"Orbit calculation time: {duration}s."
-
-        self._energies()
-        self._orbit_type()
+            logger.info(f"Orbit calculation completed. Took {duration}s")
+        else:
+            self.time_str = ""
+            logger.info("\tOrbit calculation deliberately skipped.")
 
         if info:
+            logger.info("Printing Particle.__str__().")
             print(self.__str__())
 
+        logger.info("Initializing composite class 'Plot'...")
         self.plot = Plot(self)
+        logger.info("Composite class 'Plot' successfully initialized.")
+        logger.info("---------Particle's 'run' routine completed--------\n")
 
     def _orbit(self, events: list = [], t_eval=None):
         r"""Calculates the orbit of the particle, as well as
@@ -225,9 +298,11 @@ class Particle:
 
         Orbit is stored in "self".
         """
+        logger.info(f"Calculating orbit with events {events}")
 
         if t_eval is None:
             t_eval = self.t_eval_given
+            logger.debug("\tUsing given teval.")
 
         def dSdt(t, S):
             """Sets the diff equations system to pass to scipy.
@@ -235,7 +310,7 @@ class Particle:
             All values are in normalized units (NU).
             """
 
-            theta, psi, psip, z, rho = S
+            theta, psi, z, rho = S
 
             # Intermediate values
             phi_der_psip, phi_der_theta = self.Efield.Phi_der(psi)
@@ -249,16 +324,15 @@ class Particle:
             par = self.mu + rho**2 * B
             bracket1 = -par * q_value * cos_theta / r + phi_der_psip
             bracket2 = par * r * sin_theta + phi_der_theta
-            D = self.g * q_value + self.I
+            D = self.Bfield.g * q_value + self.Bfield.I
 
             # Canonical Equations
-            theta_dot = 1 / D * rho * B**2 + self.g / D * bracket1
-            psi_dot = -self.g / D * bracket2 * q_value
-            psip_dot = psi_dot / q_value
-            rho_dot = psi_dot / (self.g * q_value)
-            z_dot = rho * B**2 / D - self.I / D * bracket1
+            theta_dot = 1 / D * rho * B**2 + self.Bfield.g / D * bracket1
+            psi_dot = -self.Bfield.g / D * bracket2 * q_value
+            rho_dot = psi_dot / (self.Bfield.g * q_value)
+            z_dot = rho * B**2 / D - self.Bfield.I / D * bracket1
 
-            return [theta_dot, psi_dot, psip_dot, z_dot, rho_dot]
+            return [theta_dot, psi_dot, z_dot, rho_dot]
 
         if self.method == "RK45":
             t_span = (t_eval[0], t_eval[-1])
@@ -272,28 +346,25 @@ class Particle:
             )
             theta = sol.y[0]
             psi = sol.y[1]
-            psip = self.q.psip_of_psi(psi)
-            z = sol.y[3]
-            rho = sol.y[4]
+            z = sol.y[2]
+            rho = sol.y[3]
             t_events = sol.t_events
             t_eval = sol.t
         elif self.method == "lsoda":
             sol = odeint(dSdt, y0=self.ode_init, t=self.t_eval, tfirst=True)
             theta = sol.T[0]
             psi = sol.T[1]
-            psip = self.q.psip_of_psi(psi)
-            z = sol.T[3]
-            rho = sol.T[4]
+            z = sol.T[2]
+            rho = sol.T[3]
         else:
             print("Solver method must be either 'lsoda' or 'RK45'.")
 
-        # Calculate Canonical Momenta
-        Ptheta = psi + rho * self.I
-        Pzeta = rho * self.g - psip
+        # Calculate psip and Canonical Momenta
+        psip = self.q.psip_of_psi(psi)
+        Ptheta = psi + rho * self.Bfield.I
+        Pzeta = rho * self.Bfield.g - psip
 
         return [theta, psi, psip, z, rho, Ptheta, Pzeta, t_events, t_eval]
-
-        self.calculated_orbit = True
 
     def events(self, key):
 
@@ -312,10 +383,12 @@ class Particle:
     def _conversion_factors(self):
         r"""Calculates the conversion coeffecient needed to convert from lab to NU
         and vice versa."""
+        logger.info("Calculating conversion factors...")
+
         e = self.e  # 1.6*10**(-19)C
         Z = self.zeta
         m = self.mass_kg  # kg
-        B = self.B0  # Tesla
+        B = self.Bfield.B0  # Tesla
         R = self.R  # meters
 
         self.w0 = abs(Z) * e * B / m  # [s^-1]
@@ -327,6 +400,7 @@ class Particle:
         self.Volts_to_NU = self.sign * self.E_unit
 
         self.calculated_conversion_factors = True
+        logger.info("--> Calculated conversion factors.")
 
     def _energies(self):
         r"""Calculates the particle's energy in [NU], [eV] and [J], using
@@ -338,7 +412,7 @@ class Particle:
         Phi_init_NU = Phi_init * self.Volts_to_NU
 
         self.E = (  # Normalized Energy from initial conditions
-            (self.Pz0 + self.psip0) ** 2 * B_init**2 / (2 * self.g**2 * self.mass_amu)
+            (self.Pz0 + self.psip0) ** 2 * B_init**2 / (2 * self.Bfield.g**2 * self.mass_amu)
             + self.mu * B_init
             + self.sign * Phi_init_NU
         )
@@ -347,6 +421,7 @@ class Particle:
         self.E_J = self.E * self.NU_to_J
 
         self.calculated_energies = True
+        logger.info("Calculated particle's energies(NU, eV, J).")
 
     def _orbit_type(self):
         r"""
@@ -364,17 +439,20 @@ class Particle:
         (from shape page 87)
         We only have to check if the particle is in-between the 2 left parabolas.
         """
+        logger.info("Calculating particle's orbit type:")
 
-        if self.has_efield:
-            return
-
-        if not self.Bfield.is_lar:
-            print("Orbit type calculations apply only in LAR.")
+        if (self.has_efield) or (not self.Bfield.is_lar):
+            self.orbit_type_str = (
+                "Cannot calculate (Electric field is present, or Magnetic field is not LAR.)"
+            )
+            logger.warning(
+                "\tElectric field is present, or Magnetic field is not LAR. Orbit type calculation is skipped."
+            )
             return
 
         # Calculate Bmin and Bmax. In LAR, B decreases outwards.
-        Bmin = 1 - sqrt(2 * self.psi_wall)  # "Bmin occurs at psi_wall, θ = 0"
-        Bmax = 1 + sqrt(2 * self.psi_wall)  # "Bmax occurs at psi_wall, θ = π"
+        Bmin = self.Bfield.B(self.r_wall, 0)  # "Bmin occurs at psi_wall, θ = 0"
+        Bmax = self.Bfield.B(self.r_wall, np.pi)  # "Bmax occurs at psi_wall, θ = π"
 
         # Find if trapped or passing from rho (White page 83)
         sqrt1 = 2 * self.E - 2 * self.mu * Bmin
@@ -383,10 +461,12 @@ class Particle:
             self.t_or_p = "Trapped"
         else:
             self.t_or_p = "Passing"
+        logger.debug(f"\tParticle found to be {self.t_or_p}.")
 
         # Find if lost or confined
         self.orbit_x = self.Pz0 / self.psip0
         self.orbit_y = self.mu / self.E
+        logger.debug("\tCallling Construct class...")
         foo = Construct(self, get_abcs=True)
 
         # Recalculate y by reconstructing the parabola (there might be a better way
@@ -398,8 +478,12 @@ class Particle:
             self.l_or_c = "Confined"
         else:
             self.l_or_c = "Lost"
+        logger.debug(f"\tParticle found to be {self.l_or_c}.")
+
+        self.orbit_type_str = self.t_or_p + "-" + self.l_or_c
 
         self.calculated_orbit_type = True
+        logger.info(f"--> Orbit type completed. Result: {self.orbit_type_str}.")
 
     def afreq_analysis(
         self,

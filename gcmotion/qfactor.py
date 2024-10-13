@@ -26,6 +26,8 @@ The general structure is this::
     class MyQFactor(QFactor):
 
         def __init__(self, *<parameters>):
+            self.id = "foo" # Simple id used only for logging.
+            self.params = {} # Tweakable parameters, used only for logging.
             <set parameters>
 
         def q_of_psi(self, psi):
@@ -44,13 +46,15 @@ from abc import ABC, abstractmethod
 
 class QFactor(ABC):
     """q Factor base class
-    
+
     .. note::
         This class does nothing, it is only a template.
     """
 
-    def __init__():
-        """Not used, each class must define its own."""
+    @abstractmethod
+    def __init__(self):
+        self.id = "Base Class"
+        self.params = {}
 
     @abstractmethod
     def q_of_psi(self, psi: float | list | np.ndarray) -> float | list | np.ndarray:
@@ -85,7 +89,8 @@ class Unity(QFactor):
     r"""Initializes an object q with :math:`q(\psi) = 1`"""
 
     def __init__(self):
-        """Not used."""
+        self.id = "Unity"
+        self.params = {}
         return
 
     def q_of_psi(self, psi):
@@ -99,7 +104,8 @@ class Parabolic(QFactor):
     r"""Initializes an object q with :math:`q(\psi) = 1 + \psi^2`"""
 
     def __init__(self):
-        """Not used."""
+        self.id = "Parabolic"
+        self.params = {}
         return
 
     def q_of_psi(self, psi):
@@ -114,9 +120,7 @@ class Hypergeometric(QFactor):
     :math:`q(\psi) = q_0\\bigg[ 1 + \\bigg( \dfrac{\psi}{\psi_k(q_{wall})} \\bigg)^n \\bigg]^{1/n}`.
     """
 
-    def __init__(
-        self, R: float, a: float, q0: float = 1.1, psi_knee: float = 2.5, n: int = 2
-    ):
+    def __init__(self, R: float, a: float, q0: float = 1.1, psi_knee: float = 2.5, n: int = 2):
         """Parameters initialization.
 
         :param R: The tokamak's major radius.
@@ -126,9 +130,11 @@ class Hypergeometric(QFactor):
         :param n:  Order of equillibrium (1: peaked, 2: round, 4: flat).
             (Optional, defaults to 2)
         """
+        self.id = "Hypergeometric"
+        self.params = {"q0": q0, "psi_knee": psi_knee, "n": n}
+
         self.r_wall = a / R  # normalized to R
         self.psi_wall = (self.r_wall) ** 2 / 2
-
         self.psi_wall = self.psi_wall
         self.q0 = q0
         self.psi_knee = 0.75 * self.psi_wall

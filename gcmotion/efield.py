@@ -31,6 +31,8 @@ The general structure is this::
     class MyElectricField(ElectricField):
 
         def __init__(self, *<parameters>):
+            self.id = "foo" # Simple id used only for logging.
+            self.params = {} # Tweakable parameters, used only for logging.
             <set parameters>
     
         def Phi_der(self, psi): 
@@ -61,7 +63,8 @@ class ElectricField(ABC):
     """
 
     def __init__(self):
-        """Not used, each class must define its own."""
+        self.id = "Base Class"
+        self.params = {}
 
     @abstractmethod
     def Phi_der(self, psi: float) -> tuple[float, float]:
@@ -118,7 +121,8 @@ class Nofield(ElectricField):
     """
 
     def __init__(self):
-        """Not used."""
+        self.id = "NoField"
+        self.params = {}
         return
 
     def Phi_der(self, psi: float) -> tuple[float, float]:
@@ -144,6 +148,9 @@ class Parabolic(ElectricField):
             alpha (float): The :math:`r^2` coefficient.
             beta (float): The constant coefficient.
         """
+        self.id = "Parabolic"
+        self.params = {"alpha": alpha, "beta": beta}
+
         self.a = alpha
         self.b = beta
         self.q = q
@@ -194,6 +201,8 @@ class Radial(ElectricField):
             waist_width (float): The Electric field's waist width, defined as:
                 :math:`r_w = \dfrac{a}{\\text{waste width}}`.
         """
+        self.id = "Radial"
+        self.params = {"Ea": Ea, "minimum": minimum, "waist_width": waist_width}
 
         self.q = q
         self.r_wall = a / R

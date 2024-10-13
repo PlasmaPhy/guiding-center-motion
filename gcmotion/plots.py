@@ -139,13 +139,13 @@ class Plots:
             )
 
             # Plot Energy labels on colorbar
-            label, _ = p.plot._cbar_label(units)
+            label, _ = p.plot._cbar_energy(units)
             cbar_kw = {"linestyle": "-", "zorder": 3}
             if not different_colors:
                 cbar_kw["color"] = self.configs["drift_scatter_kw"]["color"]
             cbar = fig.colorbar(C, ax=ax, fraction=0.03, pad=0.2, label=label)
             for p in self.particles:
-                _, E_cbar = p.plot._cbar_label(units)
+                E_cbar = p.plot._cbar_energy(units)
                 cbar.ax.plot([0, 1], [E_cbar, E_cbar], **cbar_kw)
 
         if params_ok():

@@ -31,6 +31,8 @@ The general structure is this::
     class MyMagneticField(MagneticField):
 
         def __init__(self, *<parameters>):
+            self.id = "foo" # Simple id used only for logging.
+            self.params = {} # Tweakable parameters, used only for logging.
             <set parameters>
     
         def B(self, r, theta): 
@@ -53,7 +55,8 @@ class MagneticField(ABC):
     """
 
     def __init__(self):
-        r"""Not used, each class must define its own."""
+        self.id = "Base Class"
+        self.params = {}
 
     @abstractmethod
     def B(self, r: float | np.ndarray, theta: float | np.ndarray):
@@ -88,6 +91,9 @@ class LAR(MagneticField):
             B0 (float): The magnetic field strength on the
                 magnetic axis.
         """
+        self.id = "LAR"
+        self.params = {"I": i, "g": g, "B0": B0}
+
         self.I, self.g, self.B0 = i, g, B0
         self.is_lar = True
 
