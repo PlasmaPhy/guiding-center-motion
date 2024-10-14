@@ -316,14 +316,13 @@ class Particle:
             phi_der_psip, phi_der_theta = self.Efield.Phi_der(psi)
             phi_der_psip *= self.Volts_to_NU
             phi_der_theta *= self.Volts_to_NU
+            B_der_psi, B_der_theta = self.Bfield.B_der(psi, theta)
             q_value = self.q.q_of_psi(psi)
-            sin_theta = sin(theta)
-            cos_theta = cos(theta)
             r = sqrt(2 * psi)
             B = self.Bfield.B(r, theta)
             par = self.mu + rho**2 * B
-            bracket1 = -par * q_value * cos_theta / r + phi_der_psip
-            bracket2 = par * r * sin_theta + phi_der_theta
+            bracket1 = -par * q_value * B_der_psi + phi_der_psip
+            bracket2 = par * B_der_theta + phi_der_theta
             D = self.Bfield.g * q_value + self.Bfield.I
 
             # Canonical Equations
