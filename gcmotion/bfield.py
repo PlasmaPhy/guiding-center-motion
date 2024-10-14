@@ -43,7 +43,7 @@ The general structure is this::
 """
 
 import numpy as np
-from math import cos
+from math import cos, sin, sqrt
 from abc import ABC, abstractmethod
 
 
@@ -75,6 +75,23 @@ class MagneticField(ABC):
         """
         pass
 
+    @abstractmethod
+    def B_der(self, psi: float, theta: float):
+        """Derivaties of B(:math:`\psi`, :math:`\theta`) with respect to r,
+        :math:`\theta`.
+
+        Intended for use only inside the ODE solver. Returns the derivatives
+        with B in normalized units, so no conversion is needed.
+
+
+        Args:
+            psi (float): The :math:`\psi` coordinate
+            theta (float): The :math:`\theta` coordinate.
+
+        Returns:
+            2-tuple containing the calculated derivatives.
+        """
+
 
 # =======================================================
 
@@ -102,3 +119,10 @@ class LAR(MagneticField):
             return 1 - r * cos(theta)
         else:
             return 1 - r * np.cos(theta)
+
+    def B_der(self, psi: float, theta: float):
+        root = sqrt(2 * psi)
+        B_der_psi = cos(theta) / root
+        B_der_theta = root * sin(theta)
+
+        return (B_der_psi, B_der_theta)

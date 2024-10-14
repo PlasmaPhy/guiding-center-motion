@@ -1,6 +1,6 @@
 import numpy as np
 from time import time
-from scipy.fftpack import rfft, rfftfreq
+from scipy.fftpack import fft, fftfreq
 from scipy.signal import find_peaks as fp
 
 
@@ -33,7 +33,7 @@ class FreqAnalysis:
         if self.trim_params:
             self.signal, self.t_signal, self.t_events = self._trim_signal()
         else:
-            self.signal = eval("self." + self.angle)
+            self.signal = getattr(self, self.angle)
             self.t_signal = self.t_eval
             self.trim_str = ""
 
@@ -42,11 +42,11 @@ class FreqAnalysis:
 
         # t = self.t_signal
         # self.signal = 0 * t + np.cos(10e5 * t)
-        self.signal = np.sin(self.signal)
+
         self._fft()
         self._fft_peaks()
 
-    def __str__(self):
+    def __repr__(self):
 
         # Event locator results
         single_period = (
@@ -163,12 +163,13 @@ class FreqAnalysis:
         dt = (tf - t0) / steps
         self.sr = 1 / dt  # Sample rate
 
+        # signal = np.exp(1j * self.signal)
+        signal = np.sin(self.signal)
+
         start = time()
 
-        self.X = np.abs(rfft(self.signal))  # / len(self.signal)
-        # self.X = np.log10(self.X)
-        freqs = rfftfreq(len(self.signal)) * self.sr
-        self.omegas = 2 * np.pi * freqs
+        self.X = np.abs(fft(signal))
+        self.omegas = 2 * np.pi * fftfreq(len(signal), d=dt)
 
         end = time()
         self.fft_duration = f"{end-start:.4f}"

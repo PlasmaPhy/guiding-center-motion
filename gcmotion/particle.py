@@ -485,77 +485,11 @@ class Particle:
         self.calculated_orbit_type = True
         logger.info(f"--> Orbit type completed. Result: {self.orbit_type_str}.")
 
-    def afreq_analysis(
-        self,
-        angle: str,
-        trim: bool = True,
-        normal: bool = False,
-        remove_bias: bool = True,
-        info: bool = True,
-    ):
-        r"""Given the input angle, runs Frequncy Analysis and prints results.
-
-        Trimming and removing the bias of the timeseries gives the best results, both in
-        peak-to-peak calculation of the frequency and FFT.
-
-        Calling this functions also stores the 0th and 1st frequency of the angle, which are
-        needed to calculate the q_kinetic.
-
-        Args:
-            angle (str): The angle to analyse,
-            trim (bool, optional): Whether or not to trim the edges of the time series.
-                Defaults to True.
-            normal (bool, optional): Whether or not to use normal or lab units.
-                Defaults to True.
-            remove_bias (bool, optional): Whether or not to remove the signal's bias.
-                Defaults to True.
-            info (bool, optional): Whether or not to print results. Defaults to True.
-        Returns:
-            str: The results of the analysis.
-        """
-
-        if not remove_bias:
-            print("Warning: not removing the biases returns nonsense frequencies!")
-
-        def run_fourier():
-            """Necessary steps to run the analysis.
-
-            Returns:
-                tuple: the 0-th and first frequency of the signal.
-            """
-
-            self.FreqAnalysis = FreqAnalysis(
-                self, x, angle, trim=trim, normal=normal, remove_bias=remove_bias
-            )
-
-            # Plot Object needs to be re-initialized
-            self.plot = Plot(self)
-
-            # Check if the frequencies are correctly calculated
-            if self.FreqAnalysis.q_kinetic_ready:
-                return self.FreqAnalysis.get_omegas()
-            else:
-                return (None, None)
-
-        # Also Inintialize frequencies to make sure they are calculated later
-        if angle == "theta":
-            x = self.theta.copy()
-            self.theta_0freq = self.theta_freq = None
-            self.theta_0freq, self.theta_freq = run_fourier()
-        elif angle == "zeta":
-            x = self.zeta.copy()
-            self.z_0freq = self.z_freq = None
-            self.z_0freq, self.z_freq = run_fourier()
-
-        # Print results
-        if info and self.FreqAnalysis.signal_ok:
-            return print(self.FreqAnalysis)
-
     def freq_analysis(self, angle: str, sine: bool = False, trim_params: dict = {}):
 
         obj = FreqAnalysis(self, angle, sine=sine, trim_params=trim_params)
         obj.run()
-        print(obj)
+        print(repr(obj))
 
         # Plot Object needs to be re-initialized
         self.plot = Plot(self)

@@ -739,7 +739,7 @@ class Plot:
             ax_freq.set_ylabel("Frequency Magnitude")
             # ax_freq.semilogy()
             # ax_freq.set_ylim(bottom=1)
-            ax_freq.set_xlim([-base_freq / 5, 6 * base_freq])
+            # ax_freq.set_xlim([-base_freq / 5, 6 * base_freq])
 
             return fig, ax_time, ax_freq
 

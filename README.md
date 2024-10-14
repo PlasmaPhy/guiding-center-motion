@@ -7,19 +7,19 @@ The purpose of this tool is to calculate and analyze the orbit of different part
 Our dynamical variables are  $\theta, P_\theta, \zeta, P_\zeta$ and $ \rho_{||}$, and they are governed through Hamilton's equations:
 
 $$
-\dot \theta = \dfrac{1}{D}\rho_{||}B^2 +\dfrac{g}{D}\bigg[ -(\mu+\rho^2_{||}B)\bigg(\dfrac{q}{\sqrt{2\psi}}\cos(\theta)\bigg)  + \dfrac{\partial \Phi}{\partial \psi_p}\bigg]
+\dot \theta = \dfrac{1}{D}\rho_{||}B^2 +\dfrac{g}{D}\bigg[ -(\mu+\rho^2_{||}B)\bigg(q\dfrac{\partial B}{\partial \psi}\bigg) + \dfrac{\partial \Phi}{\partial \psi_p}\bigg]
 $$
 
 $$
-\dot \psi_p = \dfrac{\dot\psi}{q(\psi)} = -\dfrac{g}{D}\bigg[(\mu + \rho_{||}^2B)\sqrt{2\psi}\sin(\theta) + \dfrac{\partial \Phi}{\partial \theta}\bigg]
+\dot \psi_p = \dfrac{\dot\psi}{q(\psi)} = -\dfrac{g}{D}\bigg[(\mu + \rho_{||}^2B)\dfrac{\partial B}{\partial \theta} + \dfrac{\partial \Phi}{\partial \theta}\bigg]
 $$
 
 $$
-\dot \rho_{||} = -\dfrac{1}{D}\bigg[(\mu + \rho_{||}^2B)\sqrt{2\psi}\sin(\theta) + \dfrac{\partial \Phi}{\partial \theta} \bigg]
+\dot \rho_{||} = -\dfrac{1}{D}\bigg[(\mu + \rho_{||}^2B)\dfrac{\partial B}{\partial \theta} + \dfrac{\partial \Phi}{\partial \theta} \bigg]
 $$
 
 $$
-\dot \zeta = \dfrac{\rho_{||}B^2}{D} - \dfrac{I}{D}\bigg[ -(\mu+\rho^2_{||}B)\bigg(\dfrac{q}{\sqrt{2\psi}}\cos(\theta)\bigg)  + \dfrac{\partial \Phi}{\partial \psi_p}\bigg]
+\dot \zeta = \dfrac{\rho_{||}B^2}{D} - \dfrac{I}{D}\bigg[ -(\mu+\rho^2_{||}B)\bigg(q\dfrac{\partial B}{\partial \psi}\bigg)  + \dfrac{\partial \Phi}{\partial \psi_p}\bigg]
 $$
 
 where:  $\quad B = 1 - \sqrt{2\psi}\cos(\theta)$
