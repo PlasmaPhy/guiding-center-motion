@@ -1,7 +1,8 @@
 import numpy as np
 from time import time
-from scipy.fftpack import fft, fftfreq
+from scipy.fftpack import rfft, rfftfreq
 from scipy.signal import find_peaks as fp
+from numpy.polynomial import Polynomial
 
 
 class FreqAnalysis:
@@ -34,19 +35,32 @@ class FreqAnalysis:
             self.signal, self.t_signal, self.t_events = self._trim_signal()
         else:
             self.signal = getattr(self, self.angle)
-            self.t_signal = self.t_eval
+            self.t_signal = self.t_eval.copy()
             self.trim_str = ""
 
         # Lab time units
         self.t_signal = np.array(self.t_signal / self.w0)
 
-        # t = self.t_signal
-        # self.signal = 0 * t + np.cos(10e5 * t)
+        # If zeta given we use ζ - ζ_hat = ζ - ω0ζ*t for FFT
+        if self.angle == "zeta":
+            p = Polynomial.fit(self.t_signal, self.signal, 1)
+            self.a = p.convert().coef[1]  # Just for sanity check, not used
+            self.b = p.convert().coef[0]  # DC Bias, will subtract for beter FFT
+            self.signal = self.signal - self.zeta_0freq_event * self.t_signal - self.b
 
         self._fft()
         self._fft_peaks()
 
     def __repr__(self):
+
+        polynomial = ""
+        if self.angle == "zeta":
+            # Polynomial Results
+            polynomial = (
+                "-------Linear fitting to find ωζ0 and DC bias--------\n\n"
+                + f"Linear coefficient a   = zeroth ζ frequency\t= {self.a:.3e}\n"
+                + f"Constant coefficient b = DC Bias \t\t= {self.b:.3e}\n\n"
+            )
 
         # Event locator results
         single_period = (
@@ -59,6 +73,9 @@ class FreqAnalysis:
 
         # FFT results
         fft_results = "-----------------------------FFT results-------------------------------\n\n"
+        if self.angle == "zeta":
+            fft_results += "Actually using as signal for the FFT ζ(t) - ζ_hat(t) = ζ(t) - t*ωζ0_hat - DC Bias\nand not ζ(t)\n\n"
+
         if self.trim_params:
             periods = self.trim_params["periods"]
             steps_per_period = self.trim_params["steps_per_period"]
@@ -66,7 +83,7 @@ class FreqAnalysis:
             fft_results += (
                 "Using trimmed signal.\n"
                 + f"\tTotaling {periods} periods, {steps_per_period} samples each, for a total\n"
-                + f"\tof {steps_per_period} samples, and a sample rate of {self.sr:.4g} samples/s.\n\n"
+                + f"\tof {steps_per_period*periods} samples, and a sample rate of {self.sr:.4g} samples/s.\n\n"
             )
         else:
             fft_results += "Using the whole signal.\n\n"
@@ -80,8 +97,8 @@ class FreqAnalysis:
         elif self.angle == "zeta":
             harmonics = [f"{x:.4g}Hz" for x in self.zeta_harmonics_fft[:5]]
             fft_results += (
-                f"\tCalculated z zeroth frequency\t\t\t= {self.zeta_0freq_fft:.4g}\n"
-                + f"\tCalculated z fast frequency\t\t\t= {self.zeta_freq_fft:.4g}\n"
+                f"\tCalculated ζ(t) - ζ_hat(t) zeroth frequency\t\t= {self.zeta_0freq_fft:.4g}\n"
+                # + f"\tCalculated z fast frequency\t\t\t= {self.zeta_freq_fft:.4g}\n"
                 + f"\t{len(harmonics)} harmonics found: {harmonics}\n"
             )
 
@@ -90,7 +107,7 @@ class FreqAnalysis:
             + f"\nCalculation time: {self.fft_duration}s.\n\n"
         )
 
-        return single_period + fft_results
+        return polynomial + single_period + fft_results
 
     def _find_frequencies(self):
         """Finds the signal base frequencies by running a single period orbit
@@ -98,24 +115,35 @@ class FreqAnalysis:
         """
 
         start = time()
-        _, _, _, z, _, _, _, t_events, t_eval = self._orbit(events=self.event)
+        _, _, _, z, _, _, _, t_events, t_eval, dz = self._orbit(events=self.event)
         end = time()
         self.single_period_orbit_duration = f"{end-start:.4f}"
+
         t_events = np.array(t_events).flatten()
+
+        # For some psi0s, Pz0s theta is quasi periodic as well--> events never satisfied
+        # --> t_events = [], only used for ωθ(Ρζ) do not pay attention
+        if len(t_events) != 2:
+            print("t_events = []. Change initial conditions")
+            return
 
         # Theta period
         self.theta_period_event_NU = float(np.diff(t_events))
         self.theta_freq_event_NU = self.zeta_freq_event_NU = 2 * np.pi / self.theta_period_event_NU
 
-        dz = abs(np.diff(np.interp(t_events, t_eval, z))[0])
+        # Zeta period
+        # dz = abs(np.diff(np.interp(t_events, t_eval, z))[0])
+        print(f"dz: {dz}")
+        print(f"Wrong/Old dz: {abs(np.diff(np.interp(t_events, t_eval, z))[0])}")
         zeta_period_event_NU = 2 * np.pi * self.theta_period_event_NU / dz
         self.zeta_0freq_event_NU = 2 * np.pi / zeta_period_event_NU
 
         # To lab time unites
         self.theta_period_event = self.theta_period_event_NU / self.w0
-        self.zheta_period_event = zeta_period_event_NU / self.w0
+        self.zeta_period_event = zeta_period_event_NU / self.w0
         self.theta_freq_event = self.zeta_freq_event = 2 * np.pi / self.theta_period_event
         self.zeta_0freq_event = self.zeta_0freq_event_NU * self.w0
+        print(self.zeta_0freq_event)
 
     def _trim_signal(self):
         """Recalculates an orbit with pre-defined number of periods and sample rate.
@@ -146,7 +174,7 @@ class FreqAnalysis:
 
         # Calculate the orbit
         start = time()
-        theta, _, _, zeta, _, _, _, t_events, t_signal = self._orbit(
+        theta, _, _, zeta, _, _, _, t_events, t_signal, _ = self._orbit(
             events=stop_event, t_eval=t_eval
         )
         end = time()
@@ -164,12 +192,12 @@ class FreqAnalysis:
         self.sr = 1 / dt  # Sample rate
 
         # signal = np.exp(1j * self.signal)
-        signal = np.sin(self.signal)
+        # signal = np.sin(self.signal)
 
         start = time()
 
-        self.X = np.abs(fft(signal))
-        self.omegas = 2 * np.pi * fftfreq(len(signal), d=dt)
+        self.X = np.abs(rfft(self.signal))
+        self.omegas = 2 * np.pi * rfftfreq(len(self.signal), d=dt)
 
         end = time()
         self.fft_duration = f"{end-start:.4f}"

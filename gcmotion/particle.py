@@ -342,6 +342,7 @@ class Particle:
                 t_eval=t_eval,
                 rtol=self.rtol,
                 events=events,
+                dense_output=True,  # Put dense output for interpolation later
             )
             theta = sol.y[0]
             psi = sol.y[1]
@@ -349,6 +350,15 @@ class Particle:
             rho = sol.y[3]
             t_events = sol.t_events
             t_eval = sol.t
+
+            # Use dense output to interpolate ζ(t) at t_event and
+            # then get Δζ (has list form)
+            if len(t_events) > 0:
+                event_times = t_events[0]
+                z_at_events = sol.sol(event_times)[2]
+                Delta_z = np.diff(z_at_events)[0]
+                print(f"Δζ:{Delta_z}")
+
         elif self.method == "lsoda":
             sol = odeint(dSdt, y0=self.ode_init, t=self.t_eval, tfirst=True)
             theta = sol.T[0]
@@ -363,7 +373,11 @@ class Particle:
         Ptheta = psi + rho * self.Bfield.I
         Pzeta = rho * self.Bfield.g - psip
 
-        return [theta, psi, psip, z, rho, Ptheta, Pzeta, t_events, t_eval]
+        # If we have single_theta_priod event also returns Delta_z
+        if len(t_events) > 0:
+            return [theta, psi, psip, z, rho, Ptheta, Pzeta, t_events, t_eval, Delta_z]
+        else:
+            return [theta, psi, psip, z, rho, Ptheta, Pzeta, t_events, t_eval]
 
     def events(self, key):
 
@@ -484,12 +498,17 @@ class Particle:
         self.calculated_orbit_type = True
         logger.info(f"--> Orbit type completed. Result: {self.orbit_type_str}.")
 
-    def freq_analysis(self, angle: str, sine: bool = False, trim_params: dict = {}):
+    def freq_analysis(
+        self, angle: str, sine: bool = False, trim_params: dict = {}, info=True, plot=True
+    ):
 
-        obj = FreqAnalysis(self, angle, sine=sine, trim_params=trim_params)
-        obj.run()
-        print(repr(obj))
+        self.obj = FreqAnalysis(self, angle, sine=sine, trim_params=trim_params)
+        self.obj.run()
 
-        # Plot Object needs to be re-initialized
-        self.plot = Plot(self)
-        self.plot._fft(obj)
+        if info:
+            print(repr(self.obj))
+
+        if plot:
+            # Plot Object needs to be re-initialized
+            self.plot = Plot(self)
+            self.plot._fft(self.obj)

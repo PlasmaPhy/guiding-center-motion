@@ -24,6 +24,7 @@ class Collection:
         # Check data
         self.params = file.params
         self.method = method
+        self.freq_analyzed = False
         self._check(file)
         self._create()
 
@@ -119,3 +120,13 @@ class Collection:
 
         # Create plot instance
         self.plot = Plots(self)
+
+    # Added in order to use ωθ from events and FFT in def omega_thetas in plots.py
+    def freq_analysis_all(self, angle="theta"):
+
+        for p in self.particles:
+            print(f"Analyzed particle with Pz0: {p.Pz0}")
+            p.freq_analysis(angle=angle, info=False, plot=False)
+
+        self.freq_analyzed = True
+        print(self.freq_analyzed)

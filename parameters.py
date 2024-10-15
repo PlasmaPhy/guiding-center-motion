@@ -5,7 +5,7 @@ import numpy as np
 R = 6.2
 a = 2
 q = gcm.qfactor.Hypergeometric(R, a)
-N = 15  # Number of particles
+N = 25  # Number of particles
 
 # fmt: off
 
@@ -19,10 +19,10 @@ params = {
     "species"     :   "p",
     "mu"          :   10e-5,
     "theta0"      :   0,
-    "psi0"        :   np.linspace(0.1, 0.6, N), #times psi_wall
+    "psi0"        :   0.8,#np.linspace(0.3, 0.9, N), #times psi_wall
     "z0"          :   0,
-    "Pz0"         :   -0.025,
-    "t_eval"       :   np.linspace(0, 10000, 100000) # t0, tf, steps
+    "Pz0"         :   np.linspace(-0.04721, -0.01892, N), #-0.025, (-0.03,-0.01, N)
+    "t_eval"      :   np.linspace(0, 10000000, 150000) # t0, tf, steps
 
     
 }

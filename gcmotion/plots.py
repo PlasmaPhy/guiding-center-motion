@@ -139,7 +139,7 @@ class Plots:
             )
 
             # Plot Energy labels on colorbar
-            label, _ = p.plot._cbar_energy(units)
+            label = f"E({units})"
             cbar_kw = {"linestyle": "-", "zorder": 3}
             if not different_colors:
                 cbar_kw["color"] = self.configs["drift_scatter_kw"]["color"]
@@ -257,3 +257,46 @@ class Plots:
         if params_ok():
             plot()
         return
+
+    # Creates the plot ωθ(Ρζ0) for ωθ form events and FFT
+    def omega_thetas(self, zoom_out=False):
+
+        # if not self.freq_analyzed:
+        #     print('Running freq_analysis_all("theta") first')
+        #     self.freq_analysis_all(angle="theta")
+
+        omega_thetas_event = []
+        omega_thetas_fft = []
+        divergence = []
+        Pz0s = []
+
+        for p in self.particles:
+            omega_thetas_event.append(p.obj.theta_freq_event)
+            omega_thetas_fft.append(p.obj.theta_freq_fft)
+            Pz0s.append(p.Pz0)
+            divergence.append(
+                100 * (omega_thetas_fft[-1] - omega_thetas_event[-1]) / (omega_thetas_event[-1])
+            )
+
+        print(f"Events:{[omega for omega in omega_thetas_event]}")
+        print(f"FFT:{[float(omega) for omega in omega_thetas_fft]}")
+        print(f"Divergence[%]:{[float(div) for div in divergence]}")
+
+        fig, ax = plt.subplots(1, 2, figsize=(12, 5))
+        ax[0].plot(Pz0s, omega_thetas_event, marker="o", linestyle="--")
+        ax[0].plot(Pz0s, omega_thetas_fft, marker="x")
+        ax[0].set_xlabel(r"$P_{\zeta0}$")
+        ax[0].set_ylabel(r"$\omega_{\theta}[\frac{rad}{s}]$")
+        ax[0].legend(["Event Locator", "FFT"])
+
+        ax[1].plot(
+            Pz0s,
+            divergence,
+            marker="s",
+            color="green",
+        )
+        ax[1].set_xlabel(r"$P_{\zeta0}$")
+        ax[1].set_ylabel("Divergenge events-FFT [%]")
+
+        if zoom_out:
+            ax[1].set_ylim([-100, 100])
