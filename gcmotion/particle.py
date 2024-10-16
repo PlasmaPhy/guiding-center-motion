@@ -5,7 +5,7 @@ orbit type, and can draw several different plots
 
 import numpy as np
 from time import time
-from scipy.integrate import odeint, solve_ivp
+from scipy.integrate import solve_ivp
 from math import sqrt
 from .plot import Plot
 from .parabolas import Construct
@@ -35,7 +35,6 @@ class Particle:
         q: QFactor,
         Bfield: MagneticField,
         Efield: ElectricField,
-        method: str = "RK45",
         rtol: float = 10e-8,
     ):
         r"""Initializes particle and grabs configuration.
@@ -59,8 +58,6 @@ class Particle:
             Efield (ElectricField): Electric Field Object that supports query methods for getting
                 values for the field itself and some derivatives of
                 its potential.
-            method (str): Method used by the solver. Can be either 'lsoda' or 'RK45'.
-                Defaults to 'RK45'.
             rtol (float): Relative tolerance of the RK45 solver. Defaults to :math:`10^{-6}`.
         """
         logger.info("--------Initializing particle--------")
@@ -138,16 +135,14 @@ class Particle:
 
             logger.info("Setting up solver parameters...")
 
-            if method in ["RK45", "lsoda"] and isinstance(rtol, (int, float)):
-                self.method = method
+            if isinstance(rtol, (int, float)):
                 self.rtol = rtol
             else:
-                logger.warning("Invalid passed solver method. Using defaults...")
-                self.method = self.configs["default_method"]
-                self.rtol = float(self.configs["rtol"])  # Only used in RK45
+                logger.warning("Invalid passed relative tolerance. Using defaults...")
+                self.rtol = float(self.configs["rtol"])
 
             logger.debug(
-                f"\tUsing solver method '{self.method}', with relative tolerance of {self.rtol} (only used by RK45)."
+                f"\tUsing solver method 'RK4(5)', with relative tolerance of {self.rtol} (only used by RK45)."
             )
             logger.info("--> Solver setup successful.")
 
@@ -255,6 +250,7 @@ class Particle:
             self.psip = solution["psip"]
             self.Ptheta = solution["Ptheta"]
             self.Pzeta = solution["Pzeta"]
+            self.t_eval = solution["t_eval"]
             self.t_events = solution["t_events"]
             self.y_events = solution["y_events"]
 
@@ -437,31 +433,25 @@ class Particle:
 
             return [theta_dot, psi_dot, z_dot, rho_dot]
 
-        if self.method == "RK45":
-            t_span = (t_eval[0], t_eval[-1])
-            sol = solve_ivp(
-                dSdt,
-                t_span=t_span,
-                y0=self.ode_init,
-                t_eval=t_eval,
-                rtol=self.rtol,
-                events=events,
-                dense_output=True,  # Put dense output for interpolation later
-            )
-            theta = sol.y[0]
-            psi = sol.y[1]
-            zeta = sol.y[2]
-            rho = sol.y[3]
-            t_events = sol.t_events
-            y_events = sol.y_events
-        elif self.method == "lsoda":
-            sol = odeint(dSdt, y0=self.ode_init, t=self.t_eval, tfirst=True)
-            theta = sol.T[0]
-            psi = sol.T[1]
-            zeta = sol.T[2]
-            rho = sol.T[3]
-        else:
-            print("Solver method must be either 'lsoda' or 'RK45'.")
+        t_span = (t_eval[0], t_eval[-1])
+        sol = solve_ivp(
+            dSdt,
+            t_span=t_span,
+            y0=self.ode_init,
+            t_eval=t_eval,
+            rtol=self.rtol,
+            events=events,
+            dense_output=True,
+        )
+        logger.debug(f"Solver status: {sol.status}: {sol.message}")
+
+        theta = sol.y[0]
+        psi = sol.y[1]
+        zeta = sol.y[2]
+        rho = sol.y[3]
+        t_eval = sol.t
+        t_events = sol.t_events
+        y_events = sol.y_events
 
         # Calculate psip and Canonical Momenta
         psip = self.q.psip_of_psi(psi)
@@ -476,6 +466,7 @@ class Particle:
             "psip": psip,
             "Ptheta": Ptheta,
             "Pzeta": Pzeta,
+            "t_eval": t_eval,
             "t_events": t_events,
             "y_events": y_events,
         }
@@ -487,8 +478,18 @@ class Particle:
         def single_theta_period(t, S):
             return (S[0] - self.theta0) or (S[1] - self.psi0)
 
+        r0 = sqrt(2 * self.psi0)
+        B_init = self.Bfield.B(r0, self.theta0)
+        B_der_psi0 = self.Bfield.B_der(self.psi0, self.theta0)[0]
+        phi_der_psip0 = self.Efield.Phi_der(self.psi0)[0]
+        q0 = self.q.q_of_psi(self.psi0)
+        par = self.mu + self.rho0**2 * B_init
+        bracket1 = -par * q0 * B_der_psi0 + phi_der_psip0
+        D = self.Bfield.g * q0 + self.Bfield.I
+        theta_dot0 = 1 / D * self.rho0 * B_init**2 + self.Bfield.g / D * bracket1
+
         single_theta_period.terminal = 2
-        single_theta_period.direction = 1
+        single_theta_period.direction = np.sign(theta_dot0)
         events_dict = {"single_theta_period": single_theta_period}
 
         def event2(t, S):
@@ -501,3 +502,4 @@ class Particle:
         # Run a single period with event locator
 
         result = SignalAnalysis()
+        return result
