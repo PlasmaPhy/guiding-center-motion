@@ -5,7 +5,6 @@ orbit type, and can draw several different plots
 
 import numpy as np
 from time import time
-from scipy.integrate import solve_ivp
 from math import sqrt
 from .plot import Plot
 from .parabolas import Construct
@@ -14,6 +13,8 @@ from .bfield import MagneticField
 from .efield import ElectricField, Nofield
 from .qfactor import QFactor
 from . import config, logger
+
+from .scripts.orbit import orbit
 
 
 class Particle:
@@ -151,25 +152,27 @@ class Particle:
 
             logger.info("Setting up particle's initial conditions...")
 
+            self.t_eval = t_eval
             self.mu = mu
             self.theta0 = init_cond[0]
             init_cond[1] *= self.psi_wall  # CAUTION! Normalize it to psi_wall
             self.psi0 = init_cond[1]
-            self.z0 = init_cond[2]
-            self.Pz0 = init_cond[3]
-            self.psip0 = q.psip_of_psi(self.psi0)
-            self.t_eval = t_eval
-            self.t_eval_given = self.t_eval.copy()  # When re-running _orbit
-            self.rho0 = self.Pz0 + self.psip0  # Pz0 + psip0
-            self.ode_init = [self.theta0, self.psi0, self.z0, self.rho0]
+            self.zeta0 = init_cond[2]
+            self.Pzeta0 = init_cond[3]
+            self.psip0 = self.q.psip_of_psi(self.psi0)
+            self.rho0 = self.Pzeta0 + self.psip0  # Pz0 + psip0
+            self.Ptheta0 = self.psi0 + self.rho0 * self.Bfield.I  # psi + rho*I
 
-            formatted_ode_init = [float(f"{_:.5g}") for _ in self.ode_init]
-            ode_init_dict = dict(zip(["theta0", "psi0", "z0", "rho0"], formatted_ode_init))
-
-            logger.debug(f"\tSolver initial conditions: {ode_init_dict}.")
-            logger.debug(f"\tOther initial conditions: Pz0 = {self.Pz0}, psip0 = {self.psip0}")
             logger.debug(
-                f"\tParameters: μ = {self.mu:.2e}, teval(t0, tf, steps) = ({self.t_eval[0]}, {self.t_eval[-1]}, {len(self.t_eval)})"
+                "ODE initial conditions:\n"
+                + f"\ttheta0 = {self.theta0:.5g}, psi0 = {self.psi0:.5g}, zeta0 = {self.zeta0:.5g}, Pzeta0 = {self.Pzeta0:.5g}."
+            )
+            logger.debug(
+                "\tOther initial conditions:\n"
+                + f"\tPtheta0 = {self.Ptheta0:.5g}, psip0 = {self.psip0:.5g}, rho0 = {self.rho0:.5g}, mu = {self.mu:.5g}"
+            )
+            logger.debug(
+                f"\tTime span (t0, tf, steps): ({self.t_eval[0]}, {self.t_eval[-1]}, {len(self.t_eval)})"
             )
             logger.info("--> Initial conditions setup successful.")
 
@@ -206,7 +209,7 @@ class Particle:
             + "\tParticle Energy (normalized):\tE = {:e}\n".format(self.E)
             + "\tParticle Energy (eV):\t\tE = {:e} eV\n".format(self.E_eV)
             + "\tParticle Energy (J):\t\tE = {:e} J\n".format(self.E_J)
-            + f"\tToroidal Momenta:\t\tPζ = {self.Pz0}\n\n"
+            + f"\tToroidal Momenta:\t\tPζ = {self.Pzeta0}\n\n"
             + "Other Quantities:\n"
             + f'\tParticle of Species:\t\t"{self.species}"\n'
             + f"\tOrbit Type:\t\t\t{self.orbit_type_str}\n"
@@ -215,7 +218,7 @@ class Particle:
             + "\tToroidal Flux at wall:\t\tψ = {:n}\n".format(self.psi_wall)
             + "\tTime unit:\t\t\tω = {:e} Hz \n".format(self.w0)
             + "\tEnergy unit:\t\t\tE = {:e} J \n\n".format(self.E_unit)
-            + self.time_str
+            + self.solver_output
         )
 
         return info_str
@@ -240,7 +243,7 @@ class Particle:
 
         if orbit:
             start = time()
-            solution = self._orbit(events=events)
+            solution = self._orbit(events)
             end = time()
 
             self.theta = solution["theta"]
@@ -253,13 +256,16 @@ class Particle:
             self.t_eval = solution["t_eval"]
             self.t_events = solution["t_events"]
             self.y_events = solution["y_events"]
+            self.message = solution["message"]
 
             duration = f"{end-start:.4f}"
             self.calculated_orbit = True
-            self.time_str = f"Orbit calculation time: {duration}s."
+            self.solver_output = (
+                f"Solver output: {self.message}\n" + f"Orbit calculation time: {duration}s."
+            )
             logger.info(f"Orbit calculation completed. Took {duration}s")
         else:
-            self.time_str = ""
+            self.solver_output = ""
             logger.info("\tOrbit calculation deliberately skipped.")
 
         if info:
@@ -304,7 +310,7 @@ class Particle:
         Phi_init_NU = Phi_init * self.Volts_to_NU
 
         self.E = (  # Normalized Energy from initial conditions
-            (self.Pz0 + self.psip0) ** 2 * B_init**2 / (2 * self.Bfield.g**2 * self.mass_amu)
+            (self.Pzeta0 + self.psip0) ** 2 * B_init**2 / (2 * self.Bfield.g**2 * self.mass_amu)
             + self.mu * B_init
             + self.sign * Phi_init_NU
         )
@@ -356,7 +362,7 @@ class Particle:
         logger.debug(f"\tParticle found to be {self.t_or_p}.")
 
         # Find if lost or confined
-        self.orbit_x = self.Pz0 / self.psip0
+        self.orbit_x = self.Pzeta0 / self.psip0
         self.orbit_y = self.mu / self.E
         logger.debug("\tCallling Construct class...")
         foo = Construct(self, get_abcs=True)
@@ -377,125 +383,31 @@ class Particle:
         self.calculated_orbit_type = True
         logger.info(f"--> Orbit type completed. Result: {self.orbit_type_str}.")
 
-    def _orbit(self, events: list = [], t_eval=None):
-        r"""Calculates the orbit of the particle, as well as
-        :math:`P_\theta` and :math:`\psi_p`.
+    def _orbit(self, events: list = []):
 
-        Calculates the time evolution of the dynamical variables
-        :math:`\theta, \psi, \zeta, \rho_{||}`. Afterwards, it calculates
-        the canonical momenta :math:`P_\theta` and :math:`P_\zeta`, and the
-        poloidal flux :math:`\psi_p` through the q factor.
+        t = self.t_eval
 
-        The orbit can be calculated with SciPy's ``solve_ivp`` or ``odeint``
-        methods. The default is ``solve_ivp`` (RK4(5)).
-
-        The ``solve_ivp`` function integrates an ODE system using a 4th
-        order Runge-Kutta method, with an error estimation of 5th order
-        (RK4(5)). The default relative tolerance is :math:`10^{-6}`.
-
-        The ``odeint`` function integrates an ODE system using lsoda
-        from the FORTRAN library odepack.
-
-        Orbit is stored in "self".
-        """
-        logger.info(f"Calculating orbit with events {events}")
-
-        if t_eval is None:
-            t_eval = self.t_eval_given
-            logger.debug("\tUsing given teval.")
-
-        def dSdt(t, S):
-            """Sets the diff equations system to pass to scipy.
-
-            All values are in normalized units (NU).
-            """
-
-            theta, psi, z, rho = S
-
-            # Intermediate values
-            phi_der_psip, phi_der_theta = self.Efield.Phi_der(psi)
-            phi_der_psip *= self.Volts_to_NU
-            phi_der_theta *= self.Volts_to_NU
-            B_der_psi, B_der_theta = self.Bfield.B_der(psi, theta)
-            q_value = self.q.q_of_psi(psi)
-            r = sqrt(2 * psi)
-            B = self.Bfield.B(r, theta)
-            par = self.mu + rho**2 * B
-            bracket1 = -par * q_value * B_der_psi + phi_der_psip
-            bracket2 = par * B_der_theta + phi_der_theta
-            D = self.Bfield.g * q_value + self.Bfield.I
-
-            # Canonical Equations
-            theta_dot = 1 / D * rho * B**2 + self.Bfield.g / D * bracket1
-            psi_dot = -self.Bfield.g / D * bracket2 * q_value
-            rho_dot = psi_dot / (self.Bfield.g * q_value)
-            z_dot = rho * B**2 / D - self.Bfield.I / D * bracket1
-
-            return [theta_dot, psi_dot, z_dot, rho_dot]
-
-        t_span = (t_eval[0], t_eval[-1])
-        sol = solve_ivp(
-            dSdt,
-            t_span=t_span,
-            y0=self.ode_init,
-            t_eval=t_eval,
-            rtol=self.rtol,
-            events=events,
-            dense_output=True,
-        )
-        logger.debug(f"Solver status: {sol.status}: {sol.message}")
-
-        theta = sol.y[0]
-        psi = sol.y[1]
-        zeta = sol.y[2]
-        rho = sol.y[3]
-        t_eval = sol.t
-        t_events = sol.t_events
-        y_events = sol.y_events
-
-        # Calculate psip and Canonical Momenta
-        psip = self.q.psip_of_psi(psi)
-        Ptheta = psi + rho * self.Bfield.I
-        Pzeta = rho * self.Bfield.g - psip
-
-        solution = {
-            "theta": theta,
-            "psi": psi,
-            "zeta": zeta,
-            "rho": rho,
-            "psip": psip,
-            "Ptheta": Ptheta,
-            "Pzeta": Pzeta,
-            "t_eval": t_eval,
-            "t_events": t_events,
-            "y_events": y_events,
+        init_cond = {
+            "theta0": self.theta0,
+            "psi0": self.psi0,
+            "zeta0": self.zeta0,
+            "rho0": self.rho0,
         }
 
-        return solution
+        constants = {
+            "E": self.E,
+            "mu": self.mu,
+            "Pzeta0": self.Pzeta0,
+        }
 
-    def events(self, key):
+        profile = {
+            "q": self.q,
+            "Bfield": self.Bfield,
+            "Efield": self.Efield,
+            "Volts_to_NU": self.Volts_to_NU,
+        }
 
-        def single_theta_period(t, S):
-            return (S[0] - self.theta0) or (S[1] - self.psi0)
-
-        r0 = sqrt(2 * self.psi0)
-        B_init = self.Bfield.B(r0, self.theta0)
-        B_der_psi0 = self.Bfield.B_der(self.psi0, self.theta0)[0]
-        phi_der_psip0 = self.Efield.Phi_der(self.psi0)[0]
-        q0 = self.q.q_of_psi(self.psi0)
-        par = self.mu + self.rho0**2 * B_init
-        bracket1 = -par * q0 * B_der_psi0 + phi_der_psip0
-        D = self.Bfield.g * q0 + self.Bfield.I
-        theta_dot0 = 1 / D * self.rho0 * B_init**2 + self.Bfield.g / D * bracket1
-
-        single_theta_period.terminal = 2
-        single_theta_period.direction = np.sign(theta_dot0)
-        events_dict = {"single_theta_period": single_theta_period}
-
-        def event2(t, S):
-            pass
-
-        return events_dict[key]
+        return orbit(t, init_cond, constants, profile, events)
 
     def freq_analysis(self):
 

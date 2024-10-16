@@ -152,7 +152,7 @@ class Plot:
 
         logger.info("Plotting time evolutions...")
 
-        # COPY all needed attributes first
+        # Get all needed attributes first
         t = self.cwp.t_eval
         theta = self.cwp.theta
         psi = self.cwp.psi

@@ -24,6 +24,7 @@ from loguru import logger
 
 from .particle import Particle
 from .collection import Collection
+from .scripts import orbit, events
 from .plot import Plot
 from .plots import Plots
 from .animate import animate
@@ -33,6 +34,8 @@ from . import bfield, qfactor, efield, parabolas, freq
 __all__ = [
     "Particle",
     "Collection",
+    "orbit",
+    "events",
     "Plot",
     "Plots",
     "bfield",
