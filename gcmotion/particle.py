@@ -276,6 +276,111 @@ class Particle:
         logger.info("Composite class 'Plot' successfully initialized.")
         logger.info("---------Particle's 'run' routine completed--------\n")
 
+    def _conversion_factors(self):
+        r"""Calculates the conversion coeffecient needed to convert from lab to NU
+        and vice versa."""
+        logger.info("Calculating conversion factors...")
+
+        e = self.e  # 1.6*10**(-19)C
+        Z = self.zeta
+        m = self.mass_kg  # kg
+        B = self.Bfield.B0  # Tesla
+        R = self.R  # meters
+
+        self.w0 = abs(Z) * e * B / m  # [s^-1]
+        self.E_unit = m * self.w0**2 * R**2  # [J]
+
+        # Conversion Factors
+        self.NU_to_eV = 1 / self.E_unit
+        self.NU_to_J = e / self.E_unit
+        self.Volts_to_NU = self.sign * self.E_unit
+
+        self.calculated_conversion_factors = True
+        logger.info("--> Calculated conversion factors.")
+
+    def _energies(self):
+        r"""Calculates the particle's energy in [NU], [eV] and [J], using
+        its initial conditions.
+        """
+        r0 = sqrt(2 * self.psi0)
+        B_init = self.Bfield.B(r0, self.theta0)
+        Phi_init = float(self.Efield.Phi_of_psi(self.psi0))
+        Phi_init_NU = Phi_init * self.Volts_to_NU
+
+        self.E = (  # Normalized Energy from initial conditions
+            (self.Pz0 + self.psip0) ** 2 * B_init**2 / (2 * self.Bfield.g**2 * self.mass_amu)
+            + self.mu * B_init
+            + self.sign * Phi_init_NU
+        )
+
+        self.E_eV = self.E * self.NU_to_eV
+        self.E_J = self.E * self.NU_to_J
+
+        self.calculated_energies = True
+        logger.info("Calculated particle's energies(NU, eV, J).")
+
+    def _orbit_type(self):
+        r"""
+        Estimates the orbit type given the initial conditions ONLY.
+
+        .. caution:: This method works only in the absence of an Electric Field.
+
+        Trapped/passing:
+        The particle is trapped if rho vanishes, so we can
+        check if rho changes sign. Since
+        :math:`\rho = \dfrac{\sqrt{2W-2\mu B}}{B}`, we need only to
+        check under the root.
+
+        Confined/lost:
+        (from shape page 87)
+        We only have to check if the particle is in-between the 2 left parabolas.
+        """
+        logger.info("Calculating particle's orbit type:")
+
+        if (self.has_efield) or (not self.Bfield.is_lar):
+            self.orbit_type_str = (
+                "Cannot calculate (Electric field is present, or Magnetic field is not LAR.)"
+            )
+            logger.warning(
+                "\tElectric field is present, or Magnetic field is not LAR. Orbit type calculation is skipped."
+            )
+            return
+
+        # Calculate Bmin and Bmax. In LAR, B decreases outwards.
+        Bmin = self.Bfield.B(self.r_wall, 0)  # "Bmin occurs at psi_wall, θ = 0"
+        Bmax = self.Bfield.B(self.r_wall, np.pi)  # "Bmax occurs at psi_wall, θ = π"
+
+        # Find if trapped or passing from rho (White page 83)
+        sqrt1 = 2 * self.E - 2 * self.mu * Bmin
+        sqrt2 = 2 * self.E - 2 * self.mu * Bmax
+        if sqrt1 * sqrt2 < 0:
+            self.t_or_p = "Trapped"
+        else:
+            self.t_or_p = "Passing"
+        logger.debug(f"\tParticle found to be {self.t_or_p}.")
+
+        # Find if lost or confined
+        self.orbit_x = self.Pz0 / self.psip0
+        self.orbit_y = self.mu / self.E
+        logger.debug("\tCallling Construct class...")
+        foo = Construct(self, get_abcs=True)
+
+        # Recalculate y by reconstructing the parabola (there might be a better way
+        # to do this)
+        upper_y = foo.abcs[0][0] * self.orbit_x**2 + foo.abcs[0][1] * self.orbit_x + foo.abcs[0][2]
+        lower_y = foo.abcs[1][0] * self.orbit_x**2 + foo.abcs[1][1] * self.orbit_x + foo.abcs[1][2]
+
+        if self.orbit_y < upper_y and self.orbit_y > lower_y:
+            self.l_or_c = "Confined"
+        else:
+            self.l_or_c = "Lost"
+        logger.debug(f"\tParticle found to be {self.l_or_c}.")
+
+        self.orbit_type_str = self.t_or_p + "-" + self.l_or_c
+
+        self.calculated_orbit_type = True
+        logger.info(f"--> Orbit type completed. Result: {self.orbit_type_str}.")
+
     def _orbit(self, events: list = [], t_eval=None):
         r"""Calculates the orbit of the particle, as well as
         :math:`P_\theta` and :math:`\psi_p`.
@@ -390,111 +495,6 @@ class Particle:
             pass
 
         return events_dict[key]
-
-    def _conversion_factors(self):
-        r"""Calculates the conversion coeffecient needed to convert from lab to NU
-        and vice versa."""
-        logger.info("Calculating conversion factors...")
-
-        e = self.e  # 1.6*10**(-19)C
-        Z = self.zeta
-        m = self.mass_kg  # kg
-        B = self.Bfield.B0  # Tesla
-        R = self.R  # meters
-
-        self.w0 = abs(Z) * e * B / m  # [s^-1]
-        self.E_unit = m * self.w0**2 * R**2  # [J]
-
-        # Conversion Factors
-        self.NU_to_eV = 1 / self.E_unit
-        self.NU_to_J = e / self.E_unit
-        self.Volts_to_NU = self.sign * self.E_unit
-
-        self.calculated_conversion_factors = True
-        logger.info("--> Calculated conversion factors.")
-
-    def _energies(self):
-        r"""Calculates the particle's energy in [NU], [eV] and [J], using
-        its initial conditions.
-        """
-        r0 = sqrt(2 * self.psi0)
-        B_init = self.Bfield.B(r0, self.theta0)
-        Phi_init = float(self.Efield.Phi_of_psi(self.psi0))
-        Phi_init_NU = Phi_init * self.Volts_to_NU
-
-        self.E = (  # Normalized Energy from initial conditions
-            (self.Pz0 + self.psip0) ** 2 * B_init**2 / (2 * self.Bfield.g**2 * self.mass_amu)
-            + self.mu * B_init
-            + self.sign * Phi_init_NU
-        )
-
-        self.E_eV = self.E * self.NU_to_eV
-        self.E_J = self.E * self.NU_to_J
-
-        self.calculated_energies = True
-        logger.info("Calculated particle's energies(NU, eV, J).")
-
-    def _orbit_type(self):
-        r"""
-        Estimates the orbit type given the initial conditions ONLY.
-
-        .. caution:: This method works only in the absence of an Electric Field.
-
-        Trapped/passing:
-        The particle is trapped if rho vanishes, so we can
-        check if rho changes sign. Since
-        :math:`\rho = \dfrac{\sqrt{2W-2\mu B}}{B}`, we need only to
-        check under the root.
-
-        Confined/lost:
-        (from shape page 87)
-        We only have to check if the particle is in-between the 2 left parabolas.
-        """
-        logger.info("Calculating particle's orbit type:")
-
-        if (self.has_efield) or (not self.Bfield.is_lar):
-            self.orbit_type_str = (
-                "Cannot calculate (Electric field is present, or Magnetic field is not LAR.)"
-            )
-            logger.warning(
-                "\tElectric field is present, or Magnetic field is not LAR. Orbit type calculation is skipped."
-            )
-            return
-
-        # Calculate Bmin and Bmax. In LAR, B decreases outwards.
-        Bmin = self.Bfield.B(self.r_wall, 0)  # "Bmin occurs at psi_wall, θ = 0"
-        Bmax = self.Bfield.B(self.r_wall, np.pi)  # "Bmax occurs at psi_wall, θ = π"
-
-        # Find if trapped or passing from rho (White page 83)
-        sqrt1 = 2 * self.E - 2 * self.mu * Bmin
-        sqrt2 = 2 * self.E - 2 * self.mu * Bmax
-        if sqrt1 * sqrt2 < 0:
-            self.t_or_p = "Trapped"
-        else:
-            self.t_or_p = "Passing"
-        logger.debug(f"\tParticle found to be {self.t_or_p}.")
-
-        # Find if lost or confined
-        self.orbit_x = self.Pz0 / self.psip0
-        self.orbit_y = self.mu / self.E
-        logger.debug("\tCallling Construct class...")
-        foo = Construct(self, get_abcs=True)
-
-        # Recalculate y by reconstructing the parabola (there might be a better way
-        # to do this)
-        upper_y = foo.abcs[0][0] * self.orbit_x**2 + foo.abcs[0][1] * self.orbit_x + foo.abcs[0][2]
-        lower_y = foo.abcs[1][0] * self.orbit_x**2 + foo.abcs[1][1] * self.orbit_x + foo.abcs[1][2]
-
-        if self.orbit_y < upper_y and self.orbit_y > lower_y:
-            self.l_or_c = "Confined"
-        else:
-            self.l_or_c = "Lost"
-        logger.debug(f"\tParticle found to be {self.l_or_c}.")
-
-        self.orbit_type_str = self.t_or_p + "-" + self.l_or_c
-
-        self.calculated_orbit_type = True
-        logger.info(f"--> Orbit type completed. Result: {self.orbit_type_str}.")
 
     def freq_analysis(self):
 

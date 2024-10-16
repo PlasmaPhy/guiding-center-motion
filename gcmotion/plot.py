@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from typing import Literal
 from matplotlib.patches import Rectangle
 from .parabolas import Construct
-from . import utils, logger
+from . import utils, logger, config
 
 
 class Plot:
@@ -23,8 +23,9 @@ class Plot:
         Args:
             cwp (Particle): The Current Working Particle
         """
-        self.__dict__ = dict(cwp.__dict__)
-        logger.info("\tCopied cwp's attributes to 'plot' object.")
+        self.cwp = cwp  # Dont store attributes in self, they dont get updated.
+        self.configs = config.configs
+        logger.info("\tInitialized Plot class.")
 
     def tokamak_profile(self, zoom: list = [0, 1.1]):
         r"""Plots the electric field, potential, and q factor,
@@ -132,23 +133,35 @@ class Plot:
         plot_magnetic()
         logger.info("--> Tokamak profile successfully plotted.\n")
 
-    def time_evolution(self, percentage: int = 100):
+    def time_evolution(self, percentage: int = 100, units: str = "s"):
         r"""Plots the time evolution of all the dynamical variables and
         canonical momenta.
 
         Args:
             percentage (int, optional): The percentage of the orbit to be plotted.
                 Defaults to 100.
+            units (str, optional): The time units. Can be either 's' for seconds
+                or 'normal' for normalized units.
         """
 
         logger.info("Plotting time evolutions...")
+
+        t = self.cwp.t_eval
+        theta = self.cwp.theta
+        psi = self.cwp.psi
+        zeta = self.cwp.zeta
+        rho = self.cwp.rho
+        psip = self.cwp.psip
+        Ptheta = self.cwp.Ptheta
+        Pzeta = self.cwp.Pzeta
+        psip_wall = self.cwp.psip_wall
 
         if percentage < 1 or percentage > 100:
             percentage = 100
             print("Invalid percentage. Plotting the whole thing.")
             logger.warning("Invalid percentage: Plotting the whole thing...")
 
-        points = int(np.floor(self.theta.shape[0] * percentage / 100) - 1)
+        points = int(np.floor(t.shape[0] * percentage / 100) - 1)
 
         # Plotting
         fig, ax = plt.subplots(7, 1, figsize=(10, 8), sharex=True, dpi=300)
@@ -156,13 +169,13 @@ class Plot:
         ax[0].set_title("Time evolution of dynamical variables", c="b")
         ax[5].set_title("Time evolution of canonical momenta", c="b")
 
-        ax[0].scatter(self.t_eval[:points], self.theta[:points], **self.configs["time_plots_kw"])
-        ax[1].scatter(self.t_eval[:points], self.zeta[:points], **self.configs["time_plots_kw"])
-        ax[2].scatter(self.t_eval[:points], self.psi[:points], **self.configs["time_plots_kw"])
-        ax[3].scatter(self.t_eval[:points], self.psip[:points], **self.configs["time_plots_kw"])
-        ax[4].scatter(self.t_eval[:points], self.rho[:points], **self.configs["time_plots_kw"])
-        ax[5].scatter(self.t_eval[:points], self.Ptheta[:points], **self.configs["time_plots_kw"])
-        ax[6].scatter(self.t_eval[:points], self.Pzeta[:points], **self.configs["time_plots_kw"])
+        ax[0].scatter(t[:points], theta[:points], **self.configs["time_plots_kw"])
+        ax[1].scatter(t[:points], zeta[:points], **self.configs["time_plots_kw"])
+        ax[2].scatter(t[:points], psi[:points], **self.configs["time_plots_kw"])
+        ax[3].scatter(t[:points], psip[:points], **self.configs["time_plots_kw"])
+        ax[4].scatter(t[:points], rho[:points], **self.configs["time_plots_kw"])
+        ax[5].scatter(t[:points], Ptheta[:points], **self.configs["time_plots_kw"])
+        ax[6].scatter(t[:points], Pzeta[:points], **self.configs["time_plots_kw"])
 
         ax[0].set_ylabel(r"$\theta(t)$", **self.configs["time_plots_ylabel_kw"])
         ax[1].set_ylabel(r"$\zeta(t)$", **self.configs["time_plots_ylabel_kw"])
@@ -171,9 +184,12 @@ class Plot:
         ax[4].set_ylabel(r"$\rho(t)$", **self.configs["time_plots_ylabel_kw"])
         ax[5].set_ylabel(r"$P_\theta(t)$", **self.configs["time_plots_ylabel_kw"])
         ax[6].set_ylabel(r"$P_\zeta(t)$", **self.configs["time_plots_ylabel_kw"])
-        ax[6].set_ylim([-self.psip_wall, self.psip_wall])
+        ax[6].set_ylim([-psip_wall, psip_wall])
 
-        plt.xlabel("$t$")
+        if units == "normal":
+            fig.xlabel("$t [normalised units]$")
+        elif units == "Hz":
+
 
         logger.info("--> Time evolutions successfully plotted.\n")
 
