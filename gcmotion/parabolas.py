@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from . import logger
+from . import logger, config
 
 
 class Construct:
@@ -17,9 +17,9 @@ class Construct:
         Args:
             cwp (Particle): The Current Working Particle
         """
-        self.__dict__ = dict(cwp.__dict__)
-        logger.debug("Copied cwp's attributes.")
-        if self.psip_wall >= 5:
+        self.cwp = cwp
+        self.configs = config.configs
+        if self.cwp.psip_wall >= 5:
             print("Warning: Parabolas dont work with ψp_wall > 0.5.")
             logger.warning(f"ψp_wall = {self.psip_wall} > 0.5. Parabolas wont work.")
 
@@ -39,11 +39,15 @@ class Construct:
         """Calculates the parabolas' constants, x-intercepts,
         maximums, and sets the x-limits
         """
-        logger.debug("Setting up parabolas...")
-        mu, psi_wall, g = self.mu, self.psi_wall, self.Bfield.g
 
-        Bmin = self.Bfield.B(self.r_wall, 0)  # "Bmin occurs at psi_wall, θ = 0"
-        Bmax = self.Bfield.B(self.r_wall, np.pi)  # "Bmax occurs at psi_wall, θ = π"
+        logger.debug("Setting up parabolas...")
+
+        Bfield = self.cwp.Bfield
+        r_wall = self.cwp.r_wall
+        mu, psi_wall, g = self.cwp.mu, self.cwp.psi_wall, Bfield.g
+
+        Bmin = Bfield.B(r_wall, 0)  # "Bmin occurs at psi_wall, θ = 0"
+        Bmax = Bfield.B(r_wall, np.pi)  # "Bmax occurs at psi_wall, θ = π"
 
         # Parabolas constants [a, b, c]
         # __________________________________________________________
@@ -147,6 +151,8 @@ class Construct:
         """Plots the Trapped-Passing Boundary."""
         logger.info("Plotting the Trapped-Passing Boundary...")
 
+        psi_wall = self.cwp.psi_wall
+
         # Vertical line
         foo = _Parabola(self.abcs[0])
         p1 = foo._get_extremum()
@@ -163,8 +169,8 @@ class Construct:
 
         x = np.linspace(x1, x2, 1000)
 
-        B1 = 1 + np.sqrt(-2 * self.psi_wall * x)  # θ = 0
-        B2 = 1 - np.sqrt(-2 * self.psi_wall * x)  # θ = π
+        B1 = 1 + np.sqrt(-2 * psi_wall * x)  # θ = 0
+        B2 = 1 - np.sqrt(-2 * psi_wall * x)  # θ = π
 
         # E1 = self.mu * self.Bmax + self.Phi_wall  # θ = 0
         # E2 = self.mu * self.Bmax + self.Phi0  # θ = π

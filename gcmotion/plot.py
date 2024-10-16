@@ -25,6 +25,8 @@ class Plot:
         """
         self.cwp = cwp  # Dont store attributes in self, they dont get updated.
         self.configs = config.configs
+        self.dpi = self.configs["dpi"]
+
         logger.info("\tInitialized Plot class.")
 
     def tokamak_profile(self, zoom: list = [0, 1.1]):
@@ -37,16 +39,23 @@ class Plot:
         """
         logger.info("Plotting tokamak profile...")
 
-        fig = plt.figure(dpi=200, figsize=(10, 8))
+        # Get all needed attributes first
+        a = self.cwp.a
+        psi_wall = self.cwp.psi_wall
+        q = self.cwp.q
+        Bfield = self.cwp.Bfield
+        Efield = self.cwp.Efield
+
+        fig = plt.figure(dpi=self.dpi, figsize=(10, 8))
         fig.subplots_adjust(hspace=0.6)
         ax_phi = fig.add_subplot(321)
         ax_E = fig.add_subplot(322)
         ax_q1 = fig.add_subplot(323)
         ax_q2 = fig.add_subplot(324)
 
-        psi = np.linspace(0, 1.1 * self.psi_wall, 1000)
-        Er = self.Efield.Er_of_psi(psi)
-        Phi = self.Efield.Phi_of_psi(psi)
+        psi = np.linspace(0, 1.1 * psi_wall, 1000)
+        Er = Efield.Er_of_psi(psi)
+        Phi = Efield.Phi_of_psi(psi)
 
         def plot_electric():
             """Plots the electric field profile in subplots 321 and 322."""
@@ -61,18 +70,15 @@ class Plot:
                 E_ylabel = "$E_r$ [V/m]"
                 Phi_ylabel = "$Φ_r$ [V]"
 
-            # fig, ax = plt.subplots(3, 2, figsize=(14, 8), dpi=200)
-            # fig.subplots_adjust(hspace=0.3)
-
             # Radial E field
-            ax_phi.plot(psi / self.psi_wall, Er, color="b", linewidth=1.5)
+            ax_phi.plot(psi / psi_wall, Er, color="b", linewidth=1.5)
             ax_phi.plot([1, 1], [Er.min(), Er.max()], color="r", linewidth=1.5)
             ax_phi.set_xlabel(r"$\psi/\psi_{wall}$")
             ax_phi.set_ylabel(E_ylabel)
             ax_phi.set_title("Radial electric field [kV/m]", c="b")
 
             # Electric Potential
-            ax_E.plot(psi / self.psi_wall, Phi, color="b", linewidth=1.5)
+            ax_E.plot(psi / psi_wall, Phi, color="b", linewidth=1.5)
             ax_E.plot([1, 1], [Phi.min(), Phi.max()], color="r", linewidth=1.5)
             ax_E.set_xlabel(r"$\psi/\psi_{wall}$")
             ax_E.set_ylabel(Phi_ylabel)
@@ -88,18 +94,18 @@ class Plot:
             logger.debug("\tPlotting q factor profile...")
             nonlocal psi, Er, Phi
             # q(ψ)
-            y1 = self.q.q_of_psi(psi)
+            y1 = q.q_of_psi(psi)
             if type(y1) is int:  # if q = Unity
                 y1 *= np.ones(psi.shape)
-            ax_q1.plot(psi / self.psi_wall, y1, color="b", linewidth=1.5)
+            ax_q1.plot(psi / psi_wall, y1, color="b", linewidth=1.5)
             ax_q1.plot([1, 1], [y1.min(), y1.max()], color="r", linewidth=1.5)
             ax_q1.set_xlabel(r"$\psi/\psi_{wall}$")
             ax_q1.set_ylabel(r"$q(\psi)$")
             ax_q1.set_title(r"$\text{q factor }q(\psi)$", c="b")
 
             # ψ_π(ψ)
-            y2 = self.q.psip_of_psi(psi)
-            ax_q2.plot(psi / self.psi_wall, y2, color="b", linewidth=1.5)
+            y2 = q.psip_of_psi(psi)
+            ax_q2.plot(psi / psi_wall, y2, color="b", linewidth=1.5)
             ax_q2.plot([1, 1], [y2.min(), y2.max()], color="r", linewidth=1.5)
             ax_q2.set_xlabel(r"$\psi/\psi_{wall}$")
             ax_q2.set_ylabel(r"$\psi_p(\psi)$")
@@ -118,12 +124,12 @@ class Plot:
             ax_B.set_position(box)
             ax_B.set_title("LAR Magnetic Field Profile", c="b")
             ax_B.set_rlabel_position(30)
-            ax_B.set_yticks([0, self.a])
+            ax_B.set_yticks([0, a])
 
-            rs = np.linspace(0, self.a, 100)
+            rs = np.linspace(0, a, 100)
             thetas = np.linspace(0, 2 * np.pi, 100)
             r, theta = np.meshgrid(rs, thetas)
-            B = self.Bfield.B(r, theta)
+            B = Bfield.B(r, theta)
             ax_B.contourf(theta, r, B, levels=100, cmap="winter")
 
             logger.debug("\t-> Magnetic field profile successfully plotted.")
@@ -146,6 +152,7 @@ class Plot:
 
         logger.info("Plotting time evolutions...")
 
+        # COPY all needed attributes first
         t = self.cwp.t_eval
         theta = self.cwp.theta
         psi = self.cwp.psi
@@ -164,7 +171,7 @@ class Plot:
         points = int(np.floor(t.shape[0] * percentage / 100) - 1)
 
         # Plotting
-        fig, ax = plt.subplots(7, 1, figsize=(10, 8), sharex=True, dpi=300)
+        fig, ax = plt.subplots(7, 1, figsize=(10, 8), sharex=True, dpi=self.dpi)
         fig.tight_layout()
         ax[0].set_title("Time evolution of dynamical variables", c="b")
         ax[5].set_title("Time evolution of canonical momenta", c="b")
@@ -189,7 +196,7 @@ class Plot:
         if units == "normal":
             fig.xlabel("$t [normalised units]$")
         elif units == "Hz":
-
+            fig.xlabel("$t [Hz]$")
 
         logger.info("--> Time evolutions successfully plotted.\n")
 
@@ -201,17 +208,25 @@ class Plot:
             theta_lim (list, optional): Plot xlim. Must be either [0,2π] or [-π,π].
                 Defaults to [-π,π].
         """
+        logger.info("Plotting θ-Pθ and ζ-Pζ drifts...")
+
+        # Get all needed attributes first
+        psip_wall = self.cwp.psip_wall
+        theta = self.cwp.theta
+        Ptheta = self.cwp.Ptheta
+        zeta = self.cwp.zeta
+        Pzeta = self.cwp.Pzeta
 
         # Set theta lim. Mods all thetas to 2π
         theta_min, theta_max = theta_lim
-        theta_plot = utils.theta_plot(self.theta, theta_lim)
+        theta_plot = utils.theta_plot(theta, theta_lim)
 
-        fig, ax = plt.subplots(1, 2, figsize=(12, 5))
+        fig, ax = plt.subplots(1, 2, figsize=(12, 5), dpi=self.dpi)
         fig.tight_layout()
         fig.suptitle(r"Drift orbits of $P_\theta - \theta$ and $P_\zeta - \zeta$")
 
-        ax[0].scatter(theta_plot, self.Ptheta, **self.configs["drift_scatter_kw"])
-        ax[1].scatter(self.zeta, self.Pzeta, **self.configs["drift_scatter_kw"])
+        ax[0].scatter(theta_plot, Ptheta, **self.configs["drift_scatter_kw"])
+        ax[1].scatter(zeta, Pzeta, **self.configs["drift_scatter_kw"])
 
         ax[0].set_xlabel(r"$\theta$", fontsize=self.configs["drift_plots_xlabel_fontsize"])
         ax[1].set_xlabel(r"$\zeta$", fontsize=self.configs["drift_plots_xlabel_fontsize"])
@@ -219,12 +234,14 @@ class Plot:
         ax[0].set_ylabel(r"$P_\theta$", fontsize=self.configs["drift_plots_ylabel_fontsize"])
         ax[1].set_ylabel(r"$P_ζ$", fontsize=self.configs["drift_plots_ylabel_fontsize"])
 
-        ax[1].set_ylim([-self.psip_wall, self.psip_wall])
+        ax[1].set_ylim([-psip_wall, psip_wall])
 
         # Set all xticks as multiples of π, and then re-set xlims (smart!)
         ticks = ["-2π", "-3π/2", "-π", "-π/2", "0", "π/2", "π", "3π/2", "2π"]
         ax[0].set_xticks(np.linspace(-2 * np.pi, 2 * np.pi, 9), ticks)
         ax[0].set_xlim(theta_lim)
+
+        logger.info("θ-Pθ and ζ-Pζ drifts successfully plotted.")
 
     def drift(
         self, angle: Literal["zeta", "theta"] = "theta", lim: list = [-np.pi, np.pi], **kwargs
@@ -235,49 +252,51 @@ class Plot:
         as well.
 
         Args:
-            theta_lim (list, optional): Plot xlim. Must be either [0,2π] or [-π,π].
+            angle (str): The angle to plot.
+            lim (list, optional): Plot xlim. Must be either [0,2π] or [-π,π].
                 Defaults to [-π,π].
-            ax (pyplot ax, optional): The pyplot ``ax`` object to plot upon.
+            kwargs (list): The canvas (fig, ax) to plot on.
         """
+        logger.info(f"Plotting {angle}-P_{angle} drift...")
+
+        # Get all needed attributes first
+        q = getattr(self.cwp, angle)
+        P_plot = getattr(self.cwp, "P" + angle).copy()
+        psi_wall = self.cwp.psi_wall
 
         canvas = kwargs.get("canvas", None)
         different_colors = kwargs.get("different_colors", False)
 
-        if angle == "theta":
-            q = self.theta
-            P_plot = self.Ptheta / self.psi_wall
-            y_label = rf"$P_\{angle}/\psi_w$"
-            fontsize = self.configs["drift_plots_ylabel_fontsize"]
-
-        elif angle == "zeta":
-            q = self.zeta
-            P_plot = self.Pzeta
-            y_label = rf"$P_\{angle}$"
-            fontsize = self.configs["drift_plots_ylabel_fontsize"]
+        if angle == "theta":  # Normalize to psi_wall
+            P_plot /= psi_wall
 
         # Set theta lim. Mods all thetas or zetas to 2π
-        min, max = lim
         q_plot = utils.theta_plot(q, lim)
 
         if canvas is None:
-            fig = plt.figure(figsize=(6, 4))
+            fig = plt.figure(figsize=(6, 4), dpi=self.dpi)
             ax = fig.add_subplot(111)
             canvas = (fig, ax)
-        else:
+            logger.debug("\tCreating a new canvas.")
+        else:  # Use external canvas
             fig, ax = canvas
+            logger.debug("\tUsing existing canvas.")
 
         scatter_kw = self.configs["drift_scatter_kw"]
         if different_colors:
             del scatter_kw["color"]
 
         ax.scatter(q_plot, P_plot, **scatter_kw, zorder=2)
+        fontsize = self.configs["drift_plots_ylabel_fontsize"]
         ax.set_xlabel(rf"$\{angle}$", fontsize=self.configs["drift_plots_xlabel_fontsize"])
-        ax.set_ylabel(y_label, fontsize=fontsize)
+        ax.set_ylabel(rf"$P_\{angle}/\psi_w$", fontsize=fontsize)
 
         # Set all xticks as multiples of π, and then re-set xlims (smart!)
         ticks = ["-2π", "-3π/2", "-π", "-π/2", "0", "π/2", "π", "3π/2", "2π"]
         ax.set_xticks(np.linspace(-2 * np.pi, 2 * np.pi, 9), ticks)
         ax.set_xlim(lim)
+
+        logger.info(f"{angle}-P_{angle} drift successfully plotted.")
 
     def _calcW_grid(
         self,
@@ -303,25 +322,33 @@ class Plot:
             logger.debug("\tAdding Φ term to the contour.")
         logger.debug(f"\tCalculating energy values in a {theta.shape} grid.")
 
-        r = np.sqrt(2 * psi)
-        B = self.Bfield.B(r, theta)
-        psip = self.q.psip_of_psi(psi)
+        # Get all needed attributes first
+        mass_amu = self.cwp.mass_amu
+        sign = self.cwp.sign
+        mu = self.cwp.mu
+        NU_to_eV = self.cwp.NU_to_eV
+        Volts_to_NU = self.cwp.Volts_to_NU
+        q = self.cwp.q
+        Bfield = self.cwp.Bfield
+        Efield = self.cwp.Efield
 
-        W = (Pz + psip) ** 2 * B**2 / (
-            2 * self.Bfield.g**2 * self.mass_amu
-        ) + self.mu * B  # Without Φ
+        r = np.sqrt(2 * psi)
+        B = Bfield.B(r, theta)
+        psip = q.psip_of_psi(psi)
+
+        W = (Pz + psip) ** 2 * B**2 / (2 * Bfield.g**2 * mass_amu) + mu * B  # Without Φ
 
         # Add Φ if asked
         if contour_Phi:
-            Phi = self.Efield.Phi_of_psi(psi)
-            Phi *= self.Volts_to_NU * self.sign
+            Phi = Efield.Phi_of_psi(psi)
+            Phi *= Volts_to_NU * sign
             W += Phi  # all normalized
 
         if units == "eV":
-            W *= self.NU_to_eV
+            W *= NU_to_eV
             logger.debug("\tPlotting energy levels in [eV]")
         elif units == "keV":
-            W *= self.NU_to_eV / 1000
+            W *= NU_to_eV / 1000
             logger.debug("\tPlotting energy levels in [keV]")
         else:
             logger.debug("\tPlotting energy levels in [NU]")
@@ -360,10 +387,16 @@ class Plot:
                 :math:`\psi/\psi_{wall} > 1`. Defaults to True.
         """
         logger.info("Plotting energy contour:")
+
+        # Get all needed attributes first
+        Pz0 = self.cwp.Pz0
+        psi_wall = self.cwp.psi_wall
+        psi = self.cwp.psi.copy()
+
         canvas = kwargs.get("canvas", None)
 
         if canvas is None:
-            fig = plt.figure(figsize=(6, 4))
+            fig = plt.figure(figsize=(6, 4), dpi=self.dpi)
             ax = fig.add_subplot(111)
             canvas = (fig, ax)
             logger.debug("\tCreating a new canvas.")
@@ -383,14 +416,14 @@ class Plot:
         # Set psi limits (Normalised to psi_wall)
         if type(psi_lim) is str:
             if psi_lim == "auto":
-                psi_diff = self.psi.max() - self.psi.min()
-                psi_mid = (self.psi.max() + self.psi.min()) / 2
+                psi_diff = psi.max() - psi.min()
+                psi_mid = (psi.max() + psi.min()) / 2
                 psi_lower = max(0, psi_mid - 0.6 * psi_diff)
                 psi_higher = psi_mid + 0.6 * psi_diff
                 psi_lim = np.array([psi_lower, psi_higher])
                 logger.debug("\tUsing automatic ψ limits.")
         else:
-            psi_lim = np.array(psi_lim) * self.psi_wall
+            psi_lim = np.array(psi_lim) * psi_wall
             logger.debug("\tUsing user-defined ψ limits.")
         psi_min = psi_lim[0]
         psi_max = psi_lim[1]
@@ -401,7 +434,7 @@ class Plot:
             np.linspace(theta_min, theta_max, grid_density),
             np.linspace(psi_min, psi_max, grid_density),
         )
-        values = self._calcW_grid(theta, psi, self.Pz0, contour_Phi, units)
+        values = self._calcW_grid(theta, psi, Pz0, contour_Phi, units)
         span = np.array([values.min(), values.max()])
         logger.debug(f"\tEnergy values span from {span[0]:.4g}{units} to {span[1]:.4g}{units}.")
 
@@ -420,24 +453,26 @@ class Plot:
         }
 
         # Contour plot
-        C = ax.contourf(theta, psi / self.psi_wall, values, **contour_kw)
+        C = ax.contourf(theta, psi / psi_wall, values, **contour_kw)
         ax.set_xlabel(r"$\theta$")
         ax.set_ylabel(r"$\psi/\psi_{wall}$", rotation=90)
         ticks = ["-2π", "-3π/2", "-π", "-π/2", "0", "π/2", "π", "3π/2", "2π"]
         plt.xticks(np.linspace(-2 * np.pi, 2 * np.pi, 9), ticks)
-        ax.set(xlim=[theta_min, theta_max], ylim=np.array(psi_lim) / self.psi_wall)
+        ax.set(xlim=[theta_min, theta_max], ylim=np.array(psi_lim) / psi_wall)
         ax.set_facecolor("white")
 
         if wall_shade:  # ψ_wall boundary rectangle
-            rect = Rectangle(
-                (theta_lim[0], 1), 2 * np.pi, psi_max / self.psi_wall, alpha=0.2, color="k"
-            )
+            rect = Rectangle((theta_lim[0], 1), 2 * np.pi, psi_max / psi_wall, alpha=0.2, color="k")
             ax.add_patch(rect)
             logger.debug("\tAdding wall shade.")
 
         if not kwargs:  # If called for a single particle
             cbar = fig.colorbar(C, ax=ax, fraction=0.03, pad=0.2, label=f"E[{units}]")
-            cbar_kw = {"linestyle": "-", "zorder": 3}
+            cbar_kw = {
+                "linestyle": "-",
+                "zorder": 3,
+                "color": self.configs["drift_scatter_kw"]["color"],
+            }
             E_cbar = self._cbar_energy(units)
             cbar.ax.plot([0, 1], [E_cbar, E_cbar], **cbar_kw)
             logger.debug(f"\tSingle particle call. Adding energy label at {E_cbar:.4g}{units}")
@@ -449,7 +484,7 @@ class Plot:
             return C
 
     def _cbar_energy(self, units):
-        """Creates a colorbar label of the particle's energy.
+        """Returns the height of the energy colorbar label.
 
         Args:
             units (str): The energy units.
@@ -457,12 +492,14 @@ class Plot:
         Returns:
             float: The energy value.
         """
+        logger.debug("Calling _cbar_energy()")
+
         if units == "normal":
-            E_cbar = self.E
+            E_cbar = self.cwp.E
         elif units == "eV":
-            E_cbar = self.E_eV
+            E_cbar = self.cwp.E_eV
         elif units == "keV":
-            E_cbar = self.E_eV / 1000
+            E_cbar = self.cwp.E_eV / 1000
         else:
             print('units must be either "normal", "eV" or "keV"')
             return
@@ -475,30 +512,42 @@ class Plot:
         Returns early if there is no Electric field.
         """
         logger.info("Plotting orbit type Parabolas:")
-        if self.has_efield or not self.Bfield.is_lar:
-            print("Parabolas dont work with Efield present.")
-            logger.info(
-                "\tElectric field is present, or Magnetic field is not LAR. Orbit type parabolas do not work."
-            )
+
+        if self.cwp.has_efield or not self.cwp.Bfield.is_lar:
+            string = "Electric field is present, or Magnetic field is not LAR. Orbit type parabolas do not work."
+            print(string)
+            logger.info("\t" + string)
             return
         logger.debug("Calling 'Construct' class")
-        Construct(self)
+        Construct(self.cwp)
         logger.info("--> Parabolas and Boundary plotted successfully.\n")
 
     def orbit_point(self, different_colors=False, labels=True):
         r"""Plots the particle point on the :math:`\mu-P_\zeta` (normalized) plane."""
         logger.info("Plotting orbit type point on parabolas plot...")
 
+        # Get all needed attributes first
+        orbit_x = self.cwp.orbit_x
+        orbit_y = self.cwp.orbit_y
+        t_or_p = self.cwp.t_or_p
+        l_or_c = self.cwp.l_or_c
+
+        if self.cwp.has_efield or not self.cwp.Bfield.is_lar:
+            string = "Electric field is present, or Magnetic field is not LAR. Orbit type point cannote be plotted."
+            print(string)
+            logger.info("\t" + string)
+            return
+
         orbit_point_kw = self.configs["orbit_point_kw"]
         if different_colors:
             logger.debug("\tUsing different colors for each particle.")
             del orbit_point_kw["markerfacecolor"]
 
-        plt.scatter(self.orbit_x, self.orbit_y, **orbit_point_kw)
+        plt.scatter(orbit_x, orbit_y, **orbit_point_kw)
 
         if labels:
-            label = "  Particle " + f"({self.t_or_p[0]}-{self.l_or_c[0]})"
-            plt.annotate(label, (self.orbit_x, self.orbit_y), color="b")
+            label = "  Particle " + f"({t_or_p[0]}-{l_or_c[0]})"
+            plt.annotate(label, (orbit_x, orbit_y), color="b")
             logger.debug("\tPlotting particle's labels.")
 
         plt.xlabel(r"$P_\zeta/\psi_p$")
@@ -526,48 +575,39 @@ class Plot:
         """
         logger.info("Calculating torus plotting points...")
 
-        if self.percentage_calculated == percentage and self.truescale_calculated == truescale:
-            # No need to recalculate, already stored in self
-            logger.info(
-                "--> Points already calculated for that percentage and scale. Returning those..."
-            )
-            logger.info(
-                f"--> Calculation successful. Now stored: percentage = {self.percentage_calculated}, truescale = {self.truescale_calculated}."
-            )
-            return self.Rtorus, self.atorus, self.r_torus, self.theta_torus, self.z_torus
+        # Get all needed attributes first
+        R, a = self.cwp.R, self.cwp.a
+        theta = self.cwp.theta
+        psi = self.cwp.psi
+        zeta = self.cwp.zeta
 
         if percentage < 1 or percentage > 100:
             percentage = 100
             print("Invalid percentage. Plotting the whole thing.")
             logger.warning("Invalid percentage: Plotting the whole thing...")
 
-        points = int(np.floor(self.theta.shape[0] * percentage / 100) - 1)
-        self.theta_torus = self.theta[:points]
-        psi_torus = self.psi[:points]  # / self.psi_wall
-        self.z_torus = self.zeta[:points]
-        self.r_torus = np.sqrt(2 * psi_torus) * self.R  # Since r is normalized
+        points = int(np.floor(theta.shape[0] * percentage / 100) - 1)
+        theta_torus = theta[:points]
+        z_torus = zeta[:points]
+        r_torus = np.sqrt(2 * psi[:points]) * R  # Since r is normalized
 
         # Torus shape parameters
-        r_span = [self.r_torus.min(), self.r_torus.max()]
-        logger.debug(f"\tr-span calculated:[{r_span[0]:.4g}, {r_span[1]:.4g}]m, with a={self.a}m.")
+        r_span = [r_torus.min(), r_torus.max()]
+        logger.debug(f"\tr-span calculated:[{r_span[0]:.4g}, {r_span[1]:.4g}]m, with a={a}m.")
 
         if truescale:
-            self.Rtorus = self.R
-            self.atorus = self.a
+            Rtorus = R
+            atorus = a
             logger.debug("\tPlotting the orbit in True scale.")
         else:
-            self.Rtorus = (r_span[1] + r_span[0]) / 2
-            self.atorus = 1.1 * self.Rtorus / 2
-            self.r_torus *= 1 / 2
+            Rtorus = (r_span[1] + r_span[0]) / 2
+            atorus = 1.1 * Rtorus / 2
+            r_torus *= 1 / 2
             logger.warning("Plotting the zoomed in obrit.")
 
-        self.percentage_calculated = percentage
-        self.truescale_calculated = truescale
-        logger.info(
-            f"--> Calculation successful. Now stored: percentage = {self.percentage_calculated}, truescale = {self.truescale_calculated}."
-        )
+        logger.info("--> Torus points calculation successful.")
 
-        return self.Rtorus, self.atorus, self.r_torus, self.theta_torus, self.z_torus
+        return Rtorus, atorus, r_torus, theta_torus, z_torus
 
     def torus2d(self, percentage: int = 100, truescale: bool = False):
         r"""Plots the poloidal and toroidal view of the orbit.
@@ -580,22 +620,26 @@ class Plot:
         """
         logger.info("Plotting 2D torus sections...")
         # Configure torus dimensions and orbit and store internally
-        self._toruspoints(percentage=percentage, truescale=truescale)
+        Rtorus, atorus, r_torus, theta_torus, z_torus = self._toruspoints(
+            percentage=percentage, truescale=truescale
+        )
 
-        Rin = self.Rtorus - self.atorus
-        Rout = self.Rtorus + self.atorus
+        Rin = Rtorus - atorus
+        Rout = Rtorus + atorus
         logger.debug(f"Calculated Rin = {Rin:.4g}, Rout = {Rout:.4g}.")
 
-        r_plot1 = self.r_torus
-        r_plot2 = self.Rtorus + self.r_torus * np.cos(self.theta_torus)
+        r_plot1 = r_torus
+        r_plot2 = Rtorus + r_torus * np.cos(theta_torus)
 
-        fig, ax = plt.subplots(1, 2, figsize=(8, 5), subplot_kw={"projection": "polar"})
+        fig, ax = plt.subplots(
+            1, 2, figsize=(8, 5), subplot_kw={"projection": "polar"}, dpi=self.dpi
+        )
         fig.tight_layout()
 
         # Torus Walls
         ax[0].scatter(
             np.linspace(0, 2 * np.pi, 1000),
-            self.atorus * np.ones(1000),
+            atorus * np.ones(1000),
             **self.configs["torus2d_wall_kw"],
         )
         ax[1].scatter(
@@ -610,8 +654,8 @@ class Plot:
         )
 
         # Orbits
-        ax[0].scatter(self.theta_torus, r_plot1, **self.configs["torus2d_orbit_kw"], zorder=-1)
-        ax[1].scatter(self.z_torus, r_plot2, **self.configs["torus2d_orbit_kw"], zorder=-1)
+        ax[0].scatter(theta_torus, r_plot1, **self.configs["torus2d_orbit_kw"], zorder=-1)
+        ax[1].scatter(z_torus, r_plot2, **self.configs["torus2d_orbit_kw"], zorder=-1)
 
         ax[0].set_ylim(bottom=0)
         ax[1].set_ylim(bottom=0)
@@ -623,6 +667,8 @@ class Plot:
         ax[1].set_xlabel(r"$\sqrt{2\psi}\cos\theta - \zeta$")
         ax[0].tick_params(labelsize=8)
         ax[1].tick_params(labelsize=8)
+        ax[0].set_axis_off()
+        ax[1].set_axis_off()
 
         logger.info("--> 2D torus sections plotted successfully.\n")
 
@@ -650,15 +696,16 @@ class Plot:
         """
         logger.info("Plotting 3D torus...")
         # Configure torus dimensions and orbit and store internally
-        self._toruspoints(percentage=percentage, truescale=truescale)
-
+        Rtorus, atorus, r_torus, theta_torus, z_torus = self._toruspoints(
+            percentage=percentage, truescale=truescale
+        )
         custom_kw = self.configs["torus3d_orbit_kw"]
 
         if hd:
             dpi = 900
             logger.debug(f"\tPlotting image in HD ({int(dpi)}dpi).")
         else:
-            dpi = plt.rcParams["figure.dpi"]
+            dpi = self.dpi
             logger.debug(f"\tPlotting image in default definition ({int(dpi)}dpi).")
 
         if bold == "bold":
@@ -680,17 +727,16 @@ class Plot:
         logger.debug(f"\tUsing white background: {white_background}")
 
         # Cartesian
-        x = (self.Rtorus + self.r_torus * np.cos(self.theta_torus)) * np.cos(self.z_torus)
-        y = (self.Rtorus + self.r_torus * np.cos(self.theta_torus)) * np.sin(self.z_torus)
-        z = self.r_torus * np.sin(self.theta_torus)
+        x = (Rtorus + r_torus * np.cos(theta_torus)) * np.cos(z_torus)
+        y = (Rtorus + r_torus * np.cos(theta_torus)) * np.sin(z_torus)
+        z = r_torus * np.sin(theta_torus)
 
         # Torus Surface
-        theta_torus = np.linspace(0, 2 * np.pi, 400)
-        z_torus = theta_torus
-        theta_torus, z_torus = np.meshgrid(theta_torus, z_torus)
-        x_torus_wall = (self.Rtorus + self.atorus * np.cos(theta_torus)) * np.cos(z_torus)
-        y_torus_wall = (self.Rtorus + self.atorus * np.cos(theta_torus)) * np.sin(z_torus)
-        z_torus_wall = self.atorus * np.sin(theta_torus)
+        theta_values = z_values = np.linspace(0, 2 * np.pi, 400)
+        theta_grid, z_grid = np.meshgrid(theta_values, z_values)
+        x_torus_wall = (Rtorus + atorus * np.cos(theta_grid)) * np.cos(z_grid)
+        y_torus_wall = (Rtorus + atorus * np.cos(theta_grid)) * np.sin(z_grid)
+        z_torus_wall = atorus * np.sin(theta_grid)
 
         fig, ax = plt.subplots(
             dpi=dpi,
@@ -732,12 +778,12 @@ class Plot:
         X = obj.X
         omegas = obj.omegas
 
-        base_freq = obj.base_freq
+        # base_freq = obj.base_freq
 
         def plot():
             """Does the actual plotting."""
 
-            fig = plt.figure(figsize=(10, 5))
+            fig = plt.figure(figsize=(10, 5), dpi=self.dpi)
             fig.subplots_adjust(hspace=0.4)
 
             # Time evolution plot

@@ -17,6 +17,9 @@ configs = {
     "default_method" : "RK45",  # RK45 or lsoda
     "rtol" : 10e-8,
 
+    # Fgiures
+    "dpi": 300,
+
     # Plots
     "time_plots_kw": {
         "s" : 0.08,

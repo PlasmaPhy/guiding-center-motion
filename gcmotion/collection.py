@@ -10,7 +10,7 @@ from .plots import Plots
 
 class Collection:
 
-    def __init__(self, file, method="RK45"):
+    def __init__(self, file):
         """Initialized Collection class.
 
         This class is a *Collection* of many particles. It reads their initial
@@ -19,11 +19,9 @@ class Collection:
 
         Args:
             file (.py file): The python file containing the parameters.
-            method (str, optional): The solver method. Defaults to "RK45".
         """
         # Check data
         self.params = file.params
-        self.method = method
         self.freq_analyzed = False
         self._check(file)
         self._create()
@@ -98,9 +96,7 @@ class Collection:
             init_cond = [theta0, psi0, z0, Pz0]
 
             # Particle Creation
-            p = Particle(
-                species, mu, init_cond, t_eval, R, a, q, Bfield, Efield, method=self.method
-            )
+            p = Particle(species, mu, init_cond, t_eval, R, a, q, Bfield, Efield)
             self.particles.append(p)
 
     def run_all(self, orbit=True):
