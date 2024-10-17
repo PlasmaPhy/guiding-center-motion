@@ -45,13 +45,8 @@ contour_energy = {
     "cbar_color": "k",
 }
 
-#++++++++++++++++++
-plot_parameters = {
- 
-
-
+parabolas = {
     
-
     "parabolas_normal_kw": {
         "color" : "b",
         "linewidth" : 0.6,
@@ -61,6 +56,20 @@ plot_parameters = {
         "color" : "b",
         "linewidth" : 0.6,
     },
+}
+
+orbit_point = {
+
+    "orbit_point_kw": {
+        "s" : 15,
+        "marker" : "o",
+        "edgecolor" : "k",
+        "facecolor" : "red",
+    },
+}
+
+#++++++++++++++++++
+plot_parameters = {
 
     "orbit_point_kw": {
         "s" : 15,

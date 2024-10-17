@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 from gcmotion.utils._logger_setup import logger
 
-from gcmotion.configuration.plot_parameters import plot_parameters
+from gcmotion.configuration.plot_parameters import parabolas as config
 
 
 class Construct:
@@ -34,8 +34,12 @@ class Construct:
             self.return_abcs()
             return
 
+        self.fig, self.ax = plt.subplots()
+
         self._plot_parabolas()
         self._plot_tp_boundary()
+
+        self.fig.set_tight_layout(True)
 
     def _setup(self):
         """Calculates the parabolas' constants, x-intercepts,
@@ -122,31 +126,30 @@ class Construct:
     def _plot_parabolas(self):
         """Plots the 3 parabolas."""
         logger.info("Plotting the Parabolas...")
-        fig, ax = plt.subplots()
 
         # Top left
         x, y = self.par1._construct(self.xlim)
-        ax.plot(x, y, **plot_parameters["parabolas_normal_kw"])
+        self.ax.plot(x, y, **config["parabolas_normal_kw"])
 
         # Bottom left
         x, y = self.par2._construct(self.xlim)
-        ax.plot(x, y, linestyle="--", **plot_parameters["parabolas_dashed_kw"])
+        self.ax.plot(x, y, linestyle="--", **config["parabolas_dashed_kw"])
 
         # Right
         x, y = self.par3._construct(self.xlim)
-        ax.plot(x, y, linestyle="dashdot", **plot_parameters["parabolas_dashed_kw"])
+        self.ax.plot(x, y, linestyle="dashdot", **config["parabolas_dashed_kw"])
 
         # General plot settings
         top_par = _Parabola(self.abcs[0])
         _, top = top_par._get_extremum()
-        ax.set_ylim(bottom=self.ylim[0])
+        self.ax.set_ylim(bottom=self.ylim[0])
         if self.limit_axis:
             plt.gca().set_xlim(self.xlim)
             plt.gca().set_ylim(top=self.ylim[1])
             logger.debug("\tLimited x and y axis")
-        ax.set_ylabel(r"$\dfrac{\mu B_0}{E}$", rotation=0)
-        ax.set_xlabel(r"$P_\zeta/\psi_p$")
-        ax.set_title(r"Orbit types in the plane of $P_\zeta - \mu$ for fixed energy.", c="b")
+        self.ax.set_ylabel(r"$\dfrac{\mu B_0}{E}$", rotation=0)
+        self.ax.set_xlabel(r"$P_\zeta/\psi_p$")
+        self.ax.set_title(r"Orbit types in the plane of $P_\zeta - \mu$ for fixed energy.", c="b")
         logger.info("--> Obrit Parabolas plotted successfully.")
 
     def _plot_tp_boundary(self):
@@ -161,7 +164,7 @@ class Construct:
         foo = _Parabola(self.abcs[1])
         p2 = foo._get_extremum()
 
-        plt.plot([p1[0], p2[0]], [p1[1], p2[1]], **plot_parameters["parabolas_normal_kw"])
+        self.ax.plot([p1[0], p2[0]], [p1[1], p2[1]], **config["parabolas_normal_kw"])
 
         # Sideways parabola
         x1 = self.par2._get_extremum()[0]
@@ -180,8 +183,8 @@ class Construct:
         y1_plot = 1 / B1  # upper
         y2_plot = 1 / B2  # lower
 
-        plt.plot(x, y1_plot, **plot_parameters["parabolas_dashed_kw"])
-        plt.plot(x, y2_plot, **plot_parameters["parabolas_dashed_kw"])
+        self.ax.plot(x, y1_plot, **config["parabolas_dashed_kw"])
+        self.ax.plot(x, y2_plot, **config["parabolas_dashed_kw"])
 
         logger.info("--> Trapped-Passing Boundary successfully plotted.")
 
@@ -190,6 +193,9 @@ class Construct:
         Used in determining particle's orbit type.
         """  # log message is printed in __init__
         return self.abcs
+
+    def get_canvas(self):
+        return self.fig, self.ax
 
 
 # ______________________

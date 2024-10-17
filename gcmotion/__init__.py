@@ -32,6 +32,7 @@ from gcmotion.plotters.tokamak_profile import tokamak_profile
 from gcmotion.plotters.drift import drift
 from gcmotion.plotters.drifts import drifts
 from gcmotion.plotters.contour_energy import contour_energy
+from gcmotion.plotters.parabolas import parabolas
 
 __all__ = [
     "_logger_setup",
@@ -45,4 +46,5 @@ __all__ = [
     "drift",
     "drifts",
     "contour_energy",
+    "parabolas",
 ]

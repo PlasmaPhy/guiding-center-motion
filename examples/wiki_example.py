@@ -4,7 +4,7 @@ import numpy as np
 R, a = 6.2, 2  # Major/Minor Radius in [m]
 q = gcm.qfactor.Hypergeometric(R, a)
 Bfield = gcm.bfield.LAR(i=0, g=1, B0=5)
-Efield = gcm.efield.Radial(R, a, q, Ea=75000, minimum=0.9, waist_width=50)
+Efield = None  # gcm.efield.Radial(R, a, q, Ea=75000, minimum=0.9, waist_width=50)
 
 species = "p"
 mu = 10e-5
@@ -25,3 +25,4 @@ cwp.run()
 # gcm.drift(cwp)
 # gcm.drifts(cwp)
 # gcm.contour_energy(cwp)
+gcm.parabolas(cwp)
