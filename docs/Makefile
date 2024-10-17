@@ -4,9 +4,9 @@ all: docs
 .PHONY: all docs clean-docs clean
 
 docs: clean-docs
-	sphinx-build -M html docs/ docs/build
+	sphinx-build -M html ./ ./build
 
 clean-docs:
-	rm -fr docs/generated/ docs/build/
+	rm -fr ./generated/ ./build/
 
 clean: clean-docs

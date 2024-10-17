@@ -8,7 +8,6 @@ from time import time
 from math import sqrt
 from .plot import Plot
 from .parabolas import Construct
-from .signal_analysis import SignalAnalysis
 from .bfield import MagneticField
 from .efield import ElectricField, Nofield
 from .qfactor import QFactor
@@ -411,7 +410,4 @@ class Particle:
 
     def freq_analysis(self):
 
-        # Run a single period with event locator
-
-        result = SignalAnalysis()
-        return result
+        pass

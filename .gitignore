@@ -12,4 +12,8 @@ __pycache__
 log.txt
 
 # Testing notebooks
-/scripts/*.ipynb
+gcmotion/*/*.ipynb
+
+
+# TEMP
+gcmotion/freq.py
