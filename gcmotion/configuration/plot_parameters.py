@@ -19,41 +19,33 @@ time_evolution = {
 }
 
 tokamak_profile = {
+
     "contour_params": {
         "levels": 100,
         "cmap": "winter",
     },
 }
 
+drift = {
+
+    "scatter_args": {
+        "s" : 0.1,
+        "color" : "red",
+    },
+
+    "yfontsize": 20,
+    "xfontsize": 20,
+}
+
 #++++++++++++++++++
 plot_parameters = {
-    # Figures
-    "dpi": 300,
-
-    # Plots
-    "time_plots_kw": {
-        "s" : 0.08,
-        "color" : "blue",
-    },
-
-    "time_plots_ylabel_kw": {
-        "rotation": 0,
-        "fontsize" : 10,
-    },
 
     "drift_plots_kw": {
         "s" : 0.5,
         "color" : "red",
     },
     
-    "drift_plots_ylabel_fontsize" : 20,
-    "drift_plots_xlabel_fontsize" : 20,
 
-
-    "drift_scatter_kw": {
-        "s" : 0.1,
-        "color" : "red",
-    },
 
     "contour_grid_density" : 100,
     "contour_levels_default" : 15,

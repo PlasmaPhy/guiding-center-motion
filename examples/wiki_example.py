@@ -21,4 +21,5 @@ cwp = particle1
 cwp.run()
 
 # gcm.time_evolution(cwp, percentage=100)
-gcm.tokamak_profile(cwp)
+# gcm.tokamak_profile(cwp)
+# gcm.drift(cwp)
