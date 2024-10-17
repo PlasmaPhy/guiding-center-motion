@@ -7,12 +7,15 @@
 /.gcmvenv
 __pycache__
 
-/Markdowns
-.nvimlog
-log.txt
+# Build
+/dist
+
+# User space
+/usr
 
 # Testing notebooks
 gcmotion/*/*.ipynb
+
 
 
 # TEMP
