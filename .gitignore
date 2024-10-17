@@ -10,3 +10,6 @@ __pycache__
 /Markdowns
 .nvimlog
 log.txt
+
+# Testing notebooks
+/scripts/*.ipynb
