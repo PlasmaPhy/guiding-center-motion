@@ -1,7 +1,8 @@
 import numpy as np
 from scipy.integrate import solve_ivp
 from math import sqrt
-from gcm import logger
+
+from gcmotion.utils._logger_setup import logger
 
 
 def orbit(

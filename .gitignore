@@ -11,10 +11,7 @@ __pycache__
 /dist
 
 # User space
-/usr
-
-# Testing notebooks
-gcmotion/*/*.ipynb
+usr/
 
 
 

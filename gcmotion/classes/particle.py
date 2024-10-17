@@ -6,14 +6,19 @@ orbit type, and can draw several different plots
 import numpy as np
 from time import time
 from math import sqrt
-from .plot import Plot
-from .parabolas import Construct
-from .bfield import MagneticField
-from .efield import ElectricField, Nofield
-from .qfactor import QFactor
-from . import config, logger
 
-from .scripts.orbit import orbit
+from gcmotion.tokamak_config.qfactor import QFactor
+from gcmotion.tokamak_config.bfield import MagneticField
+from gcmotion.tokamak_config.efield import ElectricField, Nofield
+
+from gcmotion.utils._logger_setup import logger
+
+from gcmotion.configuration.physical_constants import physical_constants
+from gcmotion.configuration.solver_configuration import solver_configuration
+
+from gcmotion.scripts.orbit import orbit
+
+from gcmotion.classes.parabolas import Construct
 
 
 class Particle:
@@ -35,7 +40,6 @@ class Particle:
         q: QFactor,
         Bfield: MagneticField,
         Efield: ElectricField,
-        rtol: float = 10e-8,
     ):
         r"""Initializes particle and grabs configuration.
 
@@ -67,7 +71,7 @@ class Particle:
 
             logger.info("Attempting to grab configuration.")
             try:
-                self.configs = config.configs
+                self.constants = constants
                 logger.info("--> Grabbed configuration successfully.")
             except (IOError, ValueError, NameError, OSError):
                 logger.error("--> Failed grabbing configuration.")
@@ -120,11 +124,11 @@ class Particle:
             logger.info("Setting up particle's constants...")
 
             self.species = species
-            self.mass_amu = self.configs[self.species + "_mass_amu"]
-            self.mass_keV = self.configs[self.species + "_mass_keV"]
-            self.mass_kg = self.configs[self.species + "_mass_kg"]
-            self.zeta = self.configs[self.species + "_Z"]
-            self.e = self.configs["elementary_charge"]
+            self.mass_amu = physical_constants[self.species + "_mass_amu"]
+            self.mass_keV = physical_constants[self.species + "_mass_keV"]
+            self.mass_kg = physical_constants[self.species + "_mass_kg"]
+            self.zeta = physical_constants[self.species + "_Z"]
+            self.e = physical_constants["elementary_charge"]
             self.sign = self.zeta / abs(self.zeta)
 
             logger.debug(f"\tParticle is of species '{self.species}'.")
@@ -134,16 +138,8 @@ class Particle:
             """Sets up the solver and its parameters"""
 
             logger.info("Setting up solver parameters...")
-
-            if isinstance(rtol, (int, float)):
-                self.rtol = rtol
-            else:
-                logger.warning("Invalid passed relative tolerance. Using defaults...")
-                self.rtol = float(self.configs["rtol"])
-
-            logger.debug(
-                f"\tUsing solver method 'RK4(5)', with relative tolerance of {self.rtol} (only used by RK45)."
-            )
+            self.rtol = solver_configuration["rtol"]
+            logger.debug(f"\tUsing solver method 'RK4(5)', with relative tolerance of {self.rtol}.")
             logger.info("--> Solver setup successful.")
 
         def setup_init_cond():
@@ -272,9 +268,9 @@ class Particle:
             print(self.__str__())
         logger.info("Printing Particle.__str__():\n\t\t\t" + self.__str__())
 
-        logger.info("Initializing composite class 'Plot'...")
-        self.plot = Plot(self)
-        logger.info("Composite class 'Plot' successfully initialized.")
+        # logger.info("Initializing composite class 'Plot'...")
+        # self.plot = Plot(self)
+        # logger.info("Composite class 'Plot' successfully initialized.")
         logger.info("---------Particle's 'run' routine completed--------\n")
 
     def _conversion_factors(self):

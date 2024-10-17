@@ -1,23 +1,26 @@
 # fmt: off
-configs = {
-    # Particle Properties
-    "elementary_charge" : 1.602176634e-19,  # C
 
-    "e_mass_amu" : 0.0005446623,  # Units of proton mass
-    "e_mass_keV" : 510998.95069,  # eV/c^2
-    "e_mass_kg" : 9.1093837139e-31,  # kg
-    "e_Z" : -1,  # Charge
+time_evolution = {
 
-    "p_mass_amu" : 1,  # Units of proton mass
-    "p_mass_keV" : 938272000,  # eV/c^2
-    "p_mass_kg" : 1.67262192e-27,  # kg
-    "p_Z" : 1,  # Charge
+    "fig_parameters": {
+        "figsize": (13, 9),
+        "sharex": True,
+    },
 
-    # Solvers
-    "default_method" : "RK45",  # RK45 or lsoda
-    "rtol" : 10e-8,
+    "scatter_args": {
+        "s" : 0.01,
+        "color" : "blue",
+    },
+    
+    "ylabel_args": {
+        "rotation": 0,
+        "fontsize" : 15,
+    },
+}
 
-    # Fgiures
+#++++++++++++++++++
+plot_parameters = {
+    # Figures
     "dpi": 300,
 
     # Plots
@@ -87,15 +90,4 @@ configs = {
         "linewidth" : 0.2,
     },
 
-    "animation_kw": {
-        "torus_color" : "cyan",
-        "vaxis_color" : "blue",
-        "particle_color" : "red",
-        "flux_surface_color" : "red",
-        "flux_surface_opacity" : 0.3,
-        "percentage": 100, 
-        "truescale": True, 
-        "min_step": 0.01, 
-        "seconds": 60,
-    },
 }

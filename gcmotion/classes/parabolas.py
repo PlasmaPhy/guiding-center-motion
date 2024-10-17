@@ -1,6 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from . import logger, config
+
+from gcmotion.utils._logger_setup import logger
+
+from gcmotion.configuration.plot_parameters import plot_parameters
 
 
 class Construct:
@@ -18,7 +21,6 @@ class Construct:
             cwp (Particle): The Current Working Particle
         """
         self.cwp = cwp
-        self.configs = config.configs
         if self.cwp.psip_wall >= 5:
             print("Warning: Parabolas dont work with ψp_wall > 0.5.")
             logger.warning(f"ψp_wall = {self.psip_wall} > 0.5. Parabolas wont work.")
@@ -124,15 +126,15 @@ class Construct:
 
         # Top left
         x, y = self.par1._construct(self.xlim)
-        ax.plot(x, y, **self.configs["parabolas_normal_kw"])
+        ax.plot(x, y, **plot_parameters["parabolas_normal_kw"])
 
         # Bottom left
         x, y = self.par2._construct(self.xlim)
-        ax.plot(x, y, linestyle="--", **self.configs["parabolas_dashed_kw"])
+        ax.plot(x, y, linestyle="--", **plot_parameters["parabolas_dashed_kw"])
 
         # Right
         x, y = self.par3._construct(self.xlim)
-        ax.plot(x, y, linestyle="dashdot", **self.configs["parabolas_dashed_kw"])
+        ax.plot(x, y, linestyle="dashdot", **plot_parameters["parabolas_dashed_kw"])
 
         # General plot settings
         top_par = _Parabola(self.abcs[0])
@@ -159,7 +161,7 @@ class Construct:
         foo = _Parabola(self.abcs[1])
         p2 = foo._get_extremum()
 
-        plt.plot([p1[0], p2[0]], [p1[1], p2[1]], **self.configs["parabolas_normal_kw"])
+        plt.plot([p1[0], p2[0]], [p1[1], p2[1]], **plot_parameters["parabolas_normal_kw"])
 
         # Sideways parabola
         x1 = self.par2._get_extremum()[0]
@@ -178,8 +180,8 @@ class Construct:
         y1_plot = 1 / B1  # upper
         y2_plot = 1 / B2  # lower
 
-        plt.plot(x, y1_plot, **self.configs["parabolas_dashed_kw"])
-        plt.plot(x, y2_plot, **self.configs["parabolas_dashed_kw"])
+        plt.plot(x, y1_plot, **plot_parameters["parabolas_dashed_kw"])
+        plt.plot(x, y2_plot, **plot_parameters["parabolas_dashed_kw"])
 
         logger.info("--> Trapped-Passing Boundary successfully plotted.")
 
