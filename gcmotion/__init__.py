@@ -33,6 +33,8 @@ from gcmotion.plotters.drift import drift
 from gcmotion.plotters.drifts import drifts
 from gcmotion.plotters.contour_energy import contour_energy
 from gcmotion.plotters.parabolas import parabolas
+from gcmotion.plotters.torus2d import torus2d
+from gcmotion.plotters.torus3d import torus3d
 
 __all__ = [
     "_logger_setup",
@@ -47,4 +49,6 @@ __all__ = [
     "drifts",
     "contour_energy",
     "parabolas",
+    "torus2d",
+    "torus3d",
 ]
