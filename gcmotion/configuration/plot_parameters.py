@@ -37,19 +37,20 @@ drift = {
     "xfontsize": 20,
 }
 
-#++++++++++++++++++
-plot_parameters = {
-
-    "drift_plots_kw": {
-        "s" : 0.5,
-        "color" : "red",
-    },
-    
-
+contour_energy = {
 
     "contour_grid_density" : 100,
-    "contour_levels_default" : 15,
+    "contour_levels" : 15,
     "contour_cmap" : "plasma",
+    "cbar_color": "k",
+}
+
+#++++++++++++++++++
+plot_parameters = {
+ 
+
+
+    
 
     "parabolas_normal_kw": {
         "color" : "b",
