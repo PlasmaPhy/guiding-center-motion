@@ -8,7 +8,7 @@ from gcmotion.configuration.plot_parameters import torus2d as config
 from gcmotion.utils.canonical_to_toroidal import canonical_to_toroidal
 
 
-def torus2d(cwp, percentage: int = 100, truescale: bool = False):
+def torus2d(cwp, percentage: int = 100, truescale: bool = True):
     r"""Plots the poloidal and toroidal view of the orbit.
 
     Args:
