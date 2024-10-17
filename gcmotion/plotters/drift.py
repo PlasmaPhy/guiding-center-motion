@@ -45,7 +45,7 @@ def drift(cwp, angle: str = "theta", lim: list = [-np.pi, np.pi], **kwargs):
         logger.debug("\tUsing existing canvas.")
 
     scatter_kw = config["scatter_args"]
-    if different_colors:
+    if different_colors and "color" in scatter_kw.keys():
         del scatter_kw["color"]
 
     ax.scatter(q_plot, P_plot, **scatter_kw, zorder=2)
