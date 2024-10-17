@@ -20,4 +20,5 @@ cwp = particle1
 
 cwp.run()
 
-gcm.plot.time_evolution(cwp, percentage=100)
+# gcm.time_evolution(cwp, percentage=100)
+gcm.tokamak_profile(cwp)

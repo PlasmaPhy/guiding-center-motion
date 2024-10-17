@@ -27,7 +27,8 @@ from gcmotion.tokamak_config import qfactor, bfield, efield
 
 from gcmotion.classes.particle import Particle
 
-from gcmotion.plotters import plot
+from gcmotion.plotters.time_evolution import time_evolution
+from gcmotion.plotters.tokamak_profile import tokamak_profile
 
 __all__ = [
     "_logger_setup",
@@ -36,5 +37,6 @@ __all__ = [
     "qfactor",
     "bfield",
     "efield",
-    "plot",
+    "time_evolution",
+    "tokamak_profile",
 ]

@@ -18,6 +18,13 @@ time_evolution = {
     },
 }
 
+tokamak_profile = {
+    "contour_params": {
+        "levels": 100,
+        "cmap": "winter",
+    },
+}
+
 #++++++++++++++++++
 plot_parameters = {
     # Figures

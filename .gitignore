@@ -13,7 +13,8 @@ __pycache__
 # User space
 usr/
 
-
+# log files
+log.txt
 
 # TEMP
 gcmotion/freq.py

@@ -39,7 +39,6 @@ def time_evolution(cwp, percentage: int = 100, units: str = "s"):
 
     # Plotting
     fig, ax = plt.subplots(7, 1, **config["fig_parameters"])
-    fig.tight_layout()
     ax[0].set_title("Time evolution of dynamical variables", c="b")
     ax[5].set_title("Time evolution of canonical momenta", c="b")
 
